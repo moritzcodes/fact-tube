@@ -1,0 +1,53 @@
+{
+    "manifest_version": 3,
+    "name": "YouTube Fact-Checker",
+    "version": "1.0.0",
+    "description": "Real-time fact-checking for YouTube videos",
+    "permissions": [
+        "activeTab",
+        "storage",
+        "scripting"
+    ],
+    "host_permissions": [
+        "*://www.youtube.com/*",
+        "*://youtube.com/*",
+        "http://localhost:8000/*"
+    ],
+    "background": {
+        "service_worker": "background.js",
+        "type": "module"
+    },
+    "content_scripts": [{
+        "matches": ["*://www.youtube.com/*", "*://youtube.com/*"],
+        "js": [
+            "content.core.js",
+            "content.utils.js",
+            "content.player.js",
+            "content.messaging.js",
+            "content.overlay.js",
+            "content.mock.js",
+            "content.morph.js",
+            "content.modals.js",
+            "content.updates.js",
+            "bootstrap.js"
+        ],
+        "run_at": "document_end"
+    }],
+    "action": {
+        "default_title": "YouTube Fact-Checker",
+        "default_icon": {
+            "16": "icons/icon16.png",
+            "48": "icons/icon48.png",
+            "128": "icons/icon128.png"
+        }
+    },
+    "icons": {
+        "16": "icons/icon16.png",
+        "48": "icons/icon48.png",
+        "128": "icons/icon128.png"
+    },
+    "web_accessible_resources": [{
+        "resources": ["overlay.html", "overlay.css"],
+        "matches": ["*://www.youtube.com/*", "*://youtube.com/*"]
+    }]
+}
