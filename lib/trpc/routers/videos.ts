@@ -27,6 +27,7 @@ export const videosRouter = router({
     .input(z.object({
       id: z.string(),
       title: z.string().optional(),
+      description: z.string().optional(),
       channelName: z.string().optional(),
       publishedAt: z.date().optional(),
       duration: z.number().int().optional(),
@@ -45,6 +46,7 @@ export const videosRouter = router({
           .update(videos)
           .set({
             title: input.title,
+            description: input.description,
             channelName: input.channelName,
             publishedAt: input.publishedAt,
             duration: input.duration,
@@ -60,6 +62,7 @@ export const videosRouter = router({
           .values({
             id: input.id,
             title: input.title,
+            description: input.description,
             channelName: input.channelName,
             publishedAt: input.publishedAt,
             duration: input.duration,
@@ -70,13 +73,14 @@ export const videosRouter = router({
       }
     }),
 
-  // Get all videos
+  // Get all videos (most recent first)
   getAll: publicProcedure
     .query(async ({ ctx }) => {
+      const { desc } = await import('drizzle-orm');
       return await ctx.db
         .select()
         .from(videos)
-        .orderBy(videos.createdAt);
+        .orderBy(desc(videos.createdAt));
     }),
 });
 

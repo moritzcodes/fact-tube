@@ -132,6 +132,43 @@ export const transcriptsRouter = router({
         throw new Error(err?.message || 'Failed to fetch transcript');
       }
     }),
+
+  // Fetch video metadata (title, description, etc.)
+  getVideoMetadata: publicProcedure
+    .input(z.object({
+      videoId: z.string(),
+    }))
+    .query(async ({ input }) => {
+      const videoId = extractVideoId(input.videoId);
+      
+      if (!videoId) {
+        throw new Error('Invalid YouTube video ID or URL');
+      }
+
+      try {
+        const innertube = await Innertube.create();
+        const info = await innertube.getInfo(videoId);
+        
+        if (!info) {
+          throw new Error('Video not found or unavailable');
+        }
+
+        const basic = info.basic_info;
+        
+        return {
+          videoId,
+          title: basic.title || 'Unknown',
+          description: basic.short_description || '',
+          channelName: basic.channel?.name || basic.author || 'Unknown',
+          duration: basic.duration || 0,
+          viewCount: basic.view_count || 0,
+        };
+      } catch (err: any) {
+        console.error('Error fetching video metadata:', err);
+        throw new Error(err?.message || 'Failed to fetch video metadata');
+      }
+    }),
+
   // Create a transcript segment
   create: publicProcedure
     .input(z.object({
@@ -200,6 +237,45 @@ export const transcriptsRouter = router({
         .from(transcriptSegments)
         .where(eq(transcriptSegments.videoId, input.videoId))
         .orderBy(transcriptSegments.startTime);
+    }),
+
+  // Save transcript segments to database
+  saveSegments: publicProcedure
+    .input(z.object({
+      videoId: z.string(),
+      segments: z.array(z.object({
+        start: z.number(),
+        text: z.string(),
+      })),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Create segments with end time calculated from next segment or +5 seconds
+      const segmentsToInsert = input.segments.map((seg, idx) => ({
+        videoId: input.videoId,
+        text: seg.text,
+        startTime: Math.floor(seg.start),
+        endTime: Math.floor(input.segments[idx + 1]?.start || (seg.start + 5)),
+      }));
+
+      // Check if segments already exist for this video
+      const existing = await ctx.db
+        .select()
+        .from(transcriptSegments)
+        .where(eq(transcriptSegments.videoId, input.videoId))
+        .limit(1);
+
+      if (existing.length > 0) {
+        // Segments already exist, don't duplicate
+        return { success: true, message: 'Segments already exist', count: 0 };
+      }
+
+      // Insert segments
+      const result = await ctx.db
+        .insert(transcriptSegments)
+        .values(segmentsToInsert)
+        .returning();
+
+      return { success: true, message: 'Segments saved', count: result.length };
     }),
 });
 

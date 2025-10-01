@@ -28,6 +28,11 @@ export const aiRouter = router({
         start: z.number(),
         text: z.string(),
       })),
+      videoContext: z.object({
+        title: z.string().optional(),
+        description: z.string().optional(),
+        channelName: z.string().optional(),
+      }).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       try {
@@ -36,40 +41,73 @@ export const aiRouter = router({
           .map(seg => `[${Math.floor(seg.start)}s] ${seg.text}`)
           .join('\n');
 
+        // Prepare video context if provided
+        let contextMessage = '';
+        if (input.videoContext) {
+          contextMessage = `\n\nVIDEO CONTEXT:`;
+          if (input.videoContext.title) {
+            contextMessage += `\nTitle: ${input.videoContext.title}`;
+          }
+          if (input.videoContext.channelName) {
+            contextMessage += `\nChannel: ${input.videoContext.channelName}`;
+          }
+          if (input.videoContext.description) {
+            contextMessage += `\nDescription: ${input.videoContext.description.slice(0, 500)}${input.videoContext.description.length > 500 ? '...' : ''}`;
+          }
+          contextMessage += '\n\n';
+        }
+
         // Call OpenRouter with GPT-4o-mini
         const response = await openai.chat.completions.create({
           model: 'openai/gpt-4o-mini',
           messages: [
             {
               role: 'system',
-              content: `You are a fact-checking assistant. Extract factual claims from video transcripts.
-              
-For each claim, provide:
-1. The exact claim statement
-2. The speaker (if identifiable from context)
-3. The timestamp in seconds (use the timestamp markers in the transcript)
+              content: `You are a precise fact-checking assistant. Extract ONLY the most important, fact-checkable claims from video transcripts.
 
-Output valid JSON in this format:
+STRICT CRITERIA - A claim must be:
+1. ✅ A specific, objective statement with measurable data (numbers, dates, statistics, events)
+2. ✅ Verifiable through credible sources (not subjective opinions)
+3. ✅ Significant and impactful (not trivial facts or common knowledge)
+4. ✅ A clear assertion (not vague or ambiguous statements)
+
+❌ DO NOT extract:
+- Opinions, predictions, or subjective statements ("I think", "probably", "maybe")
+- Questions or rhetorical statements
+- Common knowledge or widely-known facts
+- Vague statements without specific data
+- Personal anecdotes or stories
+- Promotional content or advertisements
+- Greetings, acknowledgments, or filler content
+
+✅ GOOD EXAMPLES:
+- "The unemployment rate dropped to 3.7% in October 2023"
+- "Tesla sold 1.8 million vehicles in 2023"
+- "The new law will cut corporate taxes from 35% to 21%"
+
+❌ BAD EXAMPLES:
+- "The economy is doing great" (opinion, vague)
+- "I believe climate change is real" (opinion)
+- "Today we're going to talk about..." (not a claim)
+- "This is the best product ever" (subjective)
+
+Output valid JSON:
 {
   "claims": [
     {
-      "claim": "The exact factual claim",
+      "claim": "The exact factual claim with specific data",
       "speaker": "Speaker name or 'Unknown'",
       "timestamp": 123
     }
   ]
 }
 
-Only extract claims that are:
-- Factual statements (not opinions or questions)
-- Verifiable (can be fact-checked)
-- Specific (not vague or general statements)
-
-If no claims are found, return: {"claims": []}`,
+Be HIGHLY SELECTIVE. Only extract 1-3 claims per minute of content, and only if they meet ALL criteria.
+If no significant fact-checkable claims exist, return: {"claims": []}`,
             },
             {
               role: 'user',
-              content: `Extract claims from this transcript segment:\n\n${transcriptText}`,
+              content: `Extract ONLY the most important fact-checkable claims from this transcript segment:${contextMessage}\n${transcriptText}`,
             },
           ],
           temperature: 0.3,
@@ -121,6 +159,11 @@ If no claims are found, return: {"claims": []}`,
         start: z.number(),
         text: z.string(),
       }))),
+      videoContext: z.object({
+        title: z.string().optional(),
+        description: z.string().optional(),
+        channelName: z.string().optional(),
+      }).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const results = [];
@@ -131,39 +174,72 @@ If no claims are found, return: {"claims": []}`,
             .map(seg => `[${Math.floor(seg.start)}s] ${seg.text}`)
             .join('\n');
 
+          // Prepare video context if provided
+          let contextMessage = '';
+          if (input.videoContext) {
+            contextMessage = `\n\nVIDEO CONTEXT:`;
+            if (input.videoContext.title) {
+              contextMessage += `\nTitle: ${input.videoContext.title}`;
+            }
+            if (input.videoContext.channelName) {
+              contextMessage += `\nChannel: ${input.videoContext.channelName}`;
+            }
+            if (input.videoContext.description) {
+              contextMessage += `\nDescription: ${input.videoContext.description.slice(0, 500)}${input.videoContext.description.length > 500 ? '...' : ''}`;
+            }
+            contextMessage += '\n\n';
+          }
+
           const response = await openai.chat.completions.create({
             model: 'openai/gpt-4o-mini',
             messages: [
               {
                 role: 'system',
-                content: `You are a fact-checking assistant. Extract factual claims from video transcripts.
-                
-For each claim, provide:
-1. The exact claim statement
-2. The speaker (if identifiable from context)
-3. The timestamp in seconds (use the timestamp markers in the transcript)
+                content: `You are a precise fact-checking assistant. Extract ONLY the most important, fact-checkable claims from video transcripts.
 
-Output valid JSON in this format:
+STRICT CRITERIA - A claim must be:
+1. ✅ A specific, objective statement with measurable data (numbers, dates, statistics, events)
+2. ✅ Verifiable through credible sources (not subjective opinions)
+3. ✅ Significant and impactful (not trivial facts or common knowledge)
+4. ✅ A clear assertion (not vague or ambiguous statements)
+
+❌ DO NOT extract:
+- Opinions, predictions, or subjective statements ("I think", "probably", "maybe")
+- Questions or rhetorical statements
+- Common knowledge or widely-known facts
+- Vague statements without specific data
+- Personal anecdotes or stories
+- Promotional content or advertisements
+- Greetings, acknowledgments, or filler content
+
+✅ GOOD EXAMPLES:
+- "The unemployment rate dropped to 3.7% in October 2023"
+- "Tesla sold 1.8 million vehicles in 2023"
+- "The new law will cut corporate taxes from 35% to 21%"
+
+❌ BAD EXAMPLES:
+- "The economy is doing great" (opinion, vague)
+- "I believe climate change is real" (opinion)
+- "Today we're going to talk about..." (not a claim)
+- "This is the best product ever" (subjective)
+
+Output valid JSON:
 {
   "claims": [
     {
-      "claim": "The exact factual claim",
+      "claim": "The exact factual claim with specific data",
       "speaker": "Speaker name or 'Unknown'",
       "timestamp": 123
     }
   ]
 }
 
-Only extract claims that are:
-- Factual statements (not opinions or questions)
-- Verifiable (can be fact-checked)
-- Specific (not vague or general statements)
-
-If no claims are found, return: {"claims": []}`,
+Be HIGHLY SELECTIVE. Only extract 1-3 claims per minute of content, and only if they meet ALL criteria.
+If no significant fact-checkable claims exist, return: {"claims": []}`,
               },
               {
                 role: 'user',
-                content: `Extract claims from this transcript segment:\n\n${transcriptText}`,
+                content: `Extract ONLY the most important fact-checkable claims from this transcript segment:${contextMessage}\n${transcriptText}`,
               },
             ],
             temperature: 0.3,

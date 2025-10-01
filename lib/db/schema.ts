@@ -38,6 +38,7 @@ export const transcriptSegments = pgTable("transcript_segments", {
 export const videos = pgTable("videos", {
   id: text("id").primaryKey(), // YouTube video ID
   title: text("title"),
+  description: text("description"),
   channelName: text("channel_name"),
   publishedAt: timestamp("published_at"),
   duration: integer("duration"), // in seconds
