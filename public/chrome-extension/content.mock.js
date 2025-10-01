@@ -551,6 +551,7 @@ YouTubeFactChecker.prototype.showTimelineTooltip = function(marker, factCheck) {
         z-index: 1; position: absolute; inset: 0; border-radius: inherit;
         height: 100%;
         background: rgba(0, 0, 0, 0.2);
+        backdrop-filter: blur(8px) saturate(1.2);
         pointer-events: none;
     `;
 

@@ -59,6 +59,7 @@ YouTubeFactChecker.prototype.createActiveIndicator = function() {
     box-shadow: 0 0 0 1px rgba(255,255,255,0.4), 0 8px 24px rgba(10,132,255,0.3);
     align-items: center; justify-content: center;
     opacity: 0; transform: scale(0.8);
+    backdrop-filter: blur(8px) saturate(1.2);
   `;
 
     // Liquid glass structure
