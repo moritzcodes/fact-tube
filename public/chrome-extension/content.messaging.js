@@ -8,7 +8,6 @@ YouTubeFactChecker.prototype.handleMessage = function(message, sendResponse) {
             console.log('⏳ Processing started message received');
             this.isAnalysisInProgress = true;
             this.updateButtonState();
-            this.showProcessingIndicator();
             break;
         case 'DATA_LOADED':
             console.log('📊 DATA_LOADED message received:', message.data);
@@ -41,7 +40,7 @@ YouTubeFactChecker.prototype.handleMessage = function(message, sendResponse) {
 
 YouTubeFactChecker.prototype.handleSessionData = function(session) {
     if (session.status === 'processing') {
-        this.showProcessingIndicator();
+        // Processing indicator removed
     } else if (session.status === 'completed' && session.result) {
         // Session has completed data (likely from cache) - load it directly
         console.log('Loading session data directly (from cache):', session.result);
@@ -89,13 +88,10 @@ YouTubeFactChecker.prototype.loadData = function(data) {
         // Create timeline markers with transformed data
         this.createTimelineMarkers();
 
-        // Create summary and show completion notification
+        // Create summary for logging
         const summary = data.summary || this.createSummaryFromClaims();
-        this.showCompletionNotification({
-            total_claims: data.total_claims || this.mockFactChecks.length,
-            summary: summary,
-            fromCache: data.fromCache || false
-        });
+        console.log('✅ Data loaded. Found', this.mockFactChecks.length, 'claims');
+        console.log('📊 Summary:', summary);
     } else if (data.claims && data.claims.length > 0) {
         // Fallback: if data comes in different format, use as-is
         this.mockFactChecks = data.claims;
@@ -103,16 +99,11 @@ YouTubeFactChecker.prototype.loadData = function(data) {
         // Create timeline markers with real data
         this.createTimelineMarkers();
 
-        // Show completion notification
-        this.showCompletionNotification({
-            total_claims: data.claims.length,
-            summary: data.summary || this.createSummaryFromClaims()
-        });
+        console.log('✅ Data loaded. Found', data.claims.length, 'claims');
     }
 
     this.isAnalysisInProgress = false;
     this.updateButtonState();
-    this.hideProcessingIndicator();
     this.updateVisibleClaims();
 };
 
@@ -146,38 +137,6 @@ YouTubeFactChecker.prototype.createSummaryFromClaims = function() {
     return summary;
 };
 
-YouTubeFactChecker.prototype.showProcessingIndicator = function(message = 'Analyzing video for claims...') {
-    console.log('🔄 Showing processing indicator:', message);
-
-    // Remove existing indicator if present
-    const existing = document.getElementById('fact-checker-processing');
-    if (existing) existing.remove();
-
-    const indicator = document.createElement('div');
-    indicator.id = 'fact-checker-processing';
-    indicator.style.cssText = `
-    position: fixed; top: 20px; right: 20px; background: rgba(0,0,0,0.8); color: white; padding: 12px 16px; border-radius: 8px;
-    font-family: Arial, sans-serif; font-size: 14px; z-index: 10000; display: flex; align-items: center; gap: 8px;
-  `;
-    indicator.innerHTML = `
-    <div style="width:16px;height:16px;border:2px solid #fff;border-top:2px solid transparent;border-radius:50%;animation:spin 1s linear infinite;"></div>
-    <span>${message}</span>
-    <style>@keyframes spin {0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}</style>
-  `;
-    document.body.appendChild(indicator);
-    console.log('✅ Processing indicator shown');
-};
-
-YouTubeFactChecker.prototype.hideProcessingIndicator = function() {
-    console.log('🔽 Hiding processing indicator');
-    const indicator = document.getElementById('fact-checker-processing');
-    if (indicator) {
-        indicator.remove();
-        console.log('✅ Processing indicator removed');
-    } else {
-        console.log('ℹ️ No processing indicator to remove');
-    }
-};
 
 YouTubeFactChecker.prototype.addClaim = function(claimData) {
     this.claims.push(claimData);
@@ -189,32 +148,7 @@ YouTubeFactChecker.prototype.updateFactCheck = function(factCheckData) {
     this.updateVisibleClaims();
 };
 
-YouTubeFactChecker.prototype.updateProgress = function(progressData) {
-    const indicator = document.getElementById('fact-checker-processing');
-    if (indicator) {
-        const text = indicator.querySelector('span');
-        if (text) text.textContent = `${progressData.job_type}: ${progressData.progress}%`;
-    }
-};
 
-YouTubeFactChecker.prototype.showCompletionNotification = function(data) {
-    const notification = document.createElement('div');
-    const bgColor = data.fromCache ? '#2196f3' : '#4caf50'; // Blue for cache, green for fresh
-    const icon = data.fromCache ? '🗄️' : '✅';
-    const title = data.fromCache ? 'Cached Analysis Loaded!' : 'Analysis Complete!';
-
-    notification.style.cssText = `
-    position: fixed; top: 20px; right: 20px; background: ${bgColor}; color: white; padding: 16px; border-radius: 8px; font-family: Arial, sans-serif; font-size: 14px; z-index: 10000; max-width: 300px;
-  `;
-    notification.innerHTML = `
-    <div style="font-weight: bold; margin-bottom: 8px;">${icon} ${title}</div>
-    <div>Found ${data.total_claims} claims</div>
-    <div style="font-size: 12px; margin-top: 8px; opacity: 0.9;">${data.summary.verified} verified, ${data.summary.disputed || 0} disputed, ${data.summary.false} false, ${data.summary.inconclusive} inconclusive</div>
-    ${data.fromCache ? '<div style="font-size: 11px; margin-top: 4px; opacity: 0.8;">Loaded from cache</div>' : ''}
-  `;
-    document.body.appendChild(notification);
-    setTimeout(() => notification.remove(), 5000);
-};
 
 // Handle new claim from SSE stream
 YouTubeFactChecker.prototype.handleNewClaim = function(claimData) {
@@ -279,7 +213,6 @@ YouTubeFactChecker.prototype.handleClaimUpdate = function(updateData) {
 // Handle transcript extraction request from background script
 YouTubeFactChecker.prototype.handleExtractTranscript = async function(data, sendResponse) {
     console.log('📝 Starting video analysis for:', data.videoId);
-    this.showProcessingIndicator('Analyzing video...');
     const API_BASE_URL = 'http://localhost:3000';
     try {
         // Send video ID to backend - it handles everything server-side
@@ -304,9 +237,9 @@ YouTubeFactChecker.prototype.handleExtractTranscript = async function(data, send
         console.log('✅ Video analysis complete:', result);
 
         if (result.cached) {
-            this.showProcessingIndicator(`Found ${result.totalClaims} cached claims. Checking for updates...`);
+            console.log(`Found ${result.totalClaims} cached claims. Checking for updates...`);
         } else {
-            this.showProcessingIndicator(`Extracted ${result.totalClaims} claims. Fact-checking in progress...`);
+            console.log(`Extracted ${result.totalClaims} claims. Fact-checking in progress...`);
         }
 
         // Send success response back to background script
@@ -321,22 +254,11 @@ YouTubeFactChecker.prototype.handleExtractTranscript = async function(data, send
 
     } catch (error) {
         console.error('❌ Error analyzing video:', error);
-        this.hideProcessingIndicator();
         this.isAnalysisInProgress = false;
         this.updateButtonState();
 
-        // Show error notification
-        const notification = document.createElement('div');
-        notification.style.cssText = `
-            position: fixed; top: 20px; right: 20px; background: #f44336; color: white; padding: 16px; border-radius: 8px;
-            font-family: Arial, sans-serif; font-size: 14px; z-index: 10000; max-width: 300px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        `;
-        notification.innerHTML = `
-            <div style="font-weight: bold; margin-bottom: 8px;">❌ Analysis Error</div>
-            <div style="font-size: 12px;">${error.message}</div>
-        `;
-        document.body.appendChild(notification);
-        setTimeout(() => notification.remove(), 8000);
+        // Log error for debugging
+        console.error('❌ Analysis error:', error.message);
 
         // Send error response back to background script
         if (sendResponse) {

@@ -259,7 +259,6 @@ YouTubeFactChecker.prototype.updateButtonState = function() {
         buttonContent.style.cursor = 'not-allowed';
     } else if (this.mockFactChecks && this.mockFactChecks.length > 0) {
         console.log('📊 Button state: Data loaded, showing checkmark');
-        buttonContent.innerHTML = '✓';
         buttonContent.style.cursor = 'pointer';
     } else {
         console.log('🎯 Button state: Ready for analysis');
