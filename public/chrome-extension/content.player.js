@@ -47,27 +47,21 @@ YouTubeFactChecker.prototype.extractVideoId = function() {
         this.createActiveIndicator();
         console.log('✅ Active indicator created');
 
-        if (this.mockMode) {
-            console.log('🎭 Loading mock data...');
-            // Load mock data instead of API calls
-            this.loadMockData();
-        } else {
-            console.log('📡 Requesting session data from background script...');
-            // Request session data from background script (this will trigger API call)
-            safeSendMessage({
-                    type: 'GET_SESSION_DATA',
-                    videoId: videoId,
-                },
-                (response) => {
-                    console.log('📬 Session data response:', response);
-                    if (response) {
-                        this.handleSessionData(response);
-                    } else {
-                        console.log('ℹ️ No existing session data, ready for manual analysis');
-                    }
+        console.log('📡 Requesting session data from background script...');
+        // Request session data from background script (this will trigger API call)
+        safeSendMessage({
+                type: 'GET_SESSION_DATA',
+                videoId: videoId,
+            },
+            (response) => {
+                console.log('📬 Session data response:', response);
+                if (response) {
+                    this.handleSessionData(response);
+                } else {
+                    console.log('ℹ️ No existing session data, ready for manual analysis');
                 }
-            );
-        }
+            }
+        );
     } else if (!videoId) {
         console.warn('⚠️ No video ID found in URL');
     } else {

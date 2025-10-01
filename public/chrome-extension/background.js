@@ -10,13 +10,8 @@ const API_BASE_URL = IS_PRODUCTION ?
     :
     'http://localhost:3000';
 
-// Mock mode flag - when true, no API calls are made  
-// Set to false to use real backend API
-const MOCK_MODE = false;
-
 console.log('🚀 YouTube Fact-Checker initialized');
 console.log('📡 API Base URL:', API_BASE_URL);
-console.log('🎭 Mock mode:', MOCK_MODE ? 'enabled' : 'disabled');
 
 // Track active fact-checking sessions
 const activeSessions = new Map();
@@ -27,31 +22,7 @@ const videoCache = new Map();
 // Track active SSE connections
 const activeSSEConnections = new Map();
 
-// Initialize cache by checking for existing video analysis files
-async function initializeCache() {
-    try {
-        console.log('🗄️ Initializing video cache...');
-        const cacheStatus = await checkCacheStatus();
-        if (cacheStatus.success) {
-            console.log(`✅ Cache initialized with ${cacheStatus.cached_videos.length} videos`);
-            // Store the list of cached video IDs for quick lookup
-            cacheStatus.cached_videos.forEach(videoId => {
-                videoCache.set(videoId, { exists: true, loaded: false });
-            });
-        }
-    } catch (error) {
-        console.warn('⚠️ Could not initialize cache:', error.message);
-    }
-}
-
-// Check what videos are available in cache (not needed with new backend)
-async function checkCacheStatus() {
-    // New backend doesn't have separate cache endpoint
-    // Claims are automatically cached in the database
-    return { success: true, cached_videos: [] };
-}
-
-// Load cached video data from new backend
+// Load cached video data from backend database
 async function loadCachedVideo(videoId) {
     try {
         console.log(`🗄️ Loading cached data for video: ${videoId}`);
@@ -137,8 +108,7 @@ function sendCachedDataWithRetry(tabId, cachedResult, retryCount) {
     });
 }
 
-// Initialize cache when background script loads
-initializeCache();
+// Note: Cache initialization removed - backend handles caching via database
 
 // Listen for tab updates to detect YouTube video navigation
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
@@ -441,11 +411,6 @@ function closeClaimStream(videoId) {
 async function processVideo(videoUrl) {
     console.log('🌐 processVideo called with URL:', videoUrl);
 
-    if (MOCK_MODE) {
-        console.log('🎭 Running in mock mode');
-        return { job_id: 'mock-job-' + Date.now() };
-    }
-
     const encodedVideoUrl = encodeURIComponent(videoUrl);
     const apiUrl = `${API_BASE_URL}/api/extension/process-video?video_url=${encodedVideoUrl}`;
     console.log('🚀 Making API call to:', apiUrl);
@@ -535,40 +500,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             sendResponse({ success: false, error: 'Missing video ID or URL' });
         }
         return true; // Keep message channel open for async response
-    } else if (message.type === 'START_MOCK_ANALYSIS') {
-        const videoId = message.videoId;
-        const tabId = sender.tab ? sender.tab.id : message.tabId;
-
-        if (MOCK_MODE && videoId) {
-            // Set session as processing in mock mode
-            activeSessions.set(videoId, {
-                tabId,
-                videoId,
-                status: 'processing'
-            });
-
-            // Simulate processing completion after a delay
-            setTimeout(() => {
-                const session = activeSessions.get(videoId);
-                if (session) {
-                    session.status = 'completed';
-
-                    // Notify content script that mock processing is complete
-                    try {
-                        chrome.tabs.sendMessage(tabId, {
-                            type: 'MOCK_ANALYSIS_COMPLETE',
-                            data: { videoId }
-                        });
-                    } catch (error) {
-                        console.log('Could not send message to content script');
-                    }
-                }
-            }, 2000);
-
-            sendResponse({ success: true, status: 'processing' });
-        } else {
-            sendResponse({ success: false, error: 'Not in mock mode or missing video ID' });
-        }
     }
 });
 

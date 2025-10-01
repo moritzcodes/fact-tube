@@ -9,7 +9,6 @@ class YouTubeFactChecker {
         this.currentTime = 0;
         this.player = null;
         this.isInitialized = false;
-        this.mockMode = false; // Use real API by default (set to true for mock data)
         this.activeIndicator = null;
         this.popupTimeouts = [];
         this.currentDisplayedClaim = null;
@@ -26,7 +25,6 @@ class YouTubeFactChecker {
 
     init() {
         console.log('🎯 YouTubeFactChecker.init() called');
-        console.log('🎥 Mock mode:', this.mockMode);
 
         // Wait for YouTube player to load
         this.waitForPlayer().then(() => {
