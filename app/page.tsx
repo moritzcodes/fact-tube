@@ -468,39 +468,108 @@ export default function Home() {
             </div>
             
             <div className="space-y-3">
-              {(isProcessing ? extractedClaims : (videoClaims || extractedClaims)).map((claim: any, index: number) => (
-                <div 
-                  key={claim.id || index}
-                  className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                >
-                  <div className="flex gap-4">
-                    <div className="flex-shrink-0 w-20 text-sm font-mono text-blue-600 dark:text-blue-400">
-                      {formatTimestamp(claim.timestamp)}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium mb-1">{claim.claim}</p>
-                      {claim.speaker && (
-                        <p className="text-xs text-gray-600 dark:text-gray-400">
-                          Speaker: {claim.speaker}
-                        </p>
-                      )}
-                      <div className="mt-2 flex items-center gap-2">
-                        <span className={`text-xs px-2 py-1 rounded ${
-                          claim.status === 'pending' 
-                            ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' 
-                            : claim.status === 'verified'
-                            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                            : claim.status === 'false'
-                            ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-                            : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400'
-                        }`}>
-                          {claim.status}
-                        </span>
+              {(isProcessing ? extractedClaims : (videoClaims || extractedClaims)).map((claim: any, index: number) => {
+                // Parse sources if they exist
+                let parsedSources: any[] = [];
+                try {
+                  if (claim.sources && typeof claim.sources === 'string') {
+                    parsedSources = JSON.parse(claim.sources);
+                  } else if (Array.isArray(claim.sources)) {
+                    parsedSources = claim.sources;
+                  }
+                } catch (e) {
+                  console.error('Error parsing sources:', e);
+                }
+
+                return (
+                  <div 
+                    key={claim.id || index}
+                    className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                  >
+                    <div className="flex gap-4">
+                      <div className="flex-shrink-0 w-20 text-sm font-mono text-blue-600 dark:text-blue-400">
+                        {formatTimestamp(claim.timestamp)}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium mb-1">{claim.claim}</p>
+                        {claim.speaker && (
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                            Speaker: {claim.speaker}
+                          </p>
+                        )}
+                        
+                        {/* Status Badge */}
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className={`text-xs px-2 py-1 rounded ${
+                            claim.status === 'pending' 
+                              ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' 
+                              : claim.status === 'verified'
+                              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                              : claim.status === 'false'
+                              ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                              : claim.status === 'disputed'
+                              ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400'
+                          }`}>
+                            {claim.status}
+                          </span>
+                        </div>
+
+                        {/* Verdict/Explanation */}
+                        {claim.verdict && (
+                          <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                              Explanation:
+                            </p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                              {claim.verdict}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Sources (show up to 2) */}
+                        {parsedSources.length > 0 && (
+                          <div className="mt-3">
+                            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                              Sources:
+                            </p>
+                            <div className="space-y-2">
+                              {parsedSources.slice(0, 2).map((source: any, idx: number) => (
+                                <a
+                                  key={idx}
+                                  href={source.url || source}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block text-xs p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                                >
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-blue-600 dark:text-blue-400">🔗</span>
+                                    <div className="flex-1 min-w-0">
+                                      {source.title && (
+                                        <p className="font-medium text-blue-700 dark:text-blue-300 truncate">
+                                          {source.title}
+                                        </p>
+                                      )}
+                                      <p className="text-blue-600 dark:text-blue-400 truncate">
+                                        {source.url || source}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </a>
+                              ))}
+                              {parsedSources.length > 2 && (
+                                <p className="text-xs text-gray-500 dark:text-gray-500 italic">
+                                  +{parsedSources.length - 2} more source{parsedSources.length - 2 > 1 ? 's' : ''}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

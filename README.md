@@ -6,7 +6,9 @@ A real-time fact-checking application for YouTube videos that extracts claims as
 
 - 🎥 Real-time claim extraction from YouTube videos
 - ⚡ Streaming transcript processing
-- 🔍 Background fact-checking with source citations
+- 🔍 **Automated fact-checking with Perplexity Sonar** - Using AI-powered research with reliable sources
+- ✅ Claims categorized as: verified, false, disputed, or inconclusive
+- 📚 Only uses data-driven and renowned sources (academic, government, reputable news)
 - 🎯 Time-synced claim display during video playback
 - 🔌 Chrome extension for seamless YouTube integration
 
@@ -16,6 +18,9 @@ A real-time fact-checking application for YouTube videos that extracts claims as
 - **Database:** Neon (Serverless PostgreSQL)
 - **ORM:** Drizzle ORM
 - **API:** tRPC with React Query
+- **AI/ML:** 
+  - OpenRouter (GPT-4o-mini) for claim extraction
+  - Perplexity Sonar for fact-checking
 - **Styling:** Tailwind CSS
 - **Notifications:** Sonner Toast
 - **Type Safety:** TypeScript
@@ -31,10 +36,11 @@ See [SETUP.md](./SETUP.md) for detailed setup instructions.
    pnpm install
    ```
 
-2. **Set up your Neon database:**
+2. **Set up environment variables:**
    - Create a project at [console.neon.tech](https://console.neon.tech/)
+   - Get API keys from [OpenRouter](https://openrouter.ai/keys) and [Perplexity](https://www.perplexity.ai/settings/api)
    - Copy `env.example` to `.env.local`
-   - Add your `DATABASE_URL`
+   - Add your `DATABASE_URL`, `OPENROUTER_API_KEY`, and `PERPLEXITY_API_KEY`
 
 3. **Push database schema:**
    ```bash
@@ -53,12 +59,15 @@ Visit [http://localhost:3000](http://localhost:3000) to verify setup!
 ```
 fact-tube/
 ├── app/                      # Next.js App Router
-│   ├── api/trpc/            # tRPC API endpoints
+│   ├── api/
+│   │   ├── trpc/            # tRPC API endpoints
+│   │   └── fact-check/      # Fact-checking REST endpoints
 │   ├── layout.tsx           # Root layout with providers
 │   └── page.tsx             # Home page
 ├── lib/
 │   ├── db/                  # Database schema and connection
 │   ├── trpc/                # tRPC routers and configuration
+│   ├── workers/             # Background workers (fact-checker)
 │   └── env.ts               # Type-safe environment variables
 ├── public/
 │   └── chrome-extension/    # Chrome extension files
@@ -92,12 +101,17 @@ See [SETUP.md](./SETUP.md) for complete API documentation.
 - [x] Database migrations
 - [x] Toast notifications
 
+### ✅ Completed (Phase 2)
+- [x] Claim extraction API with OpenRouter
+- [x] **Automated fact-checking worker with Perplexity Sonar**
+- [x] Real-time streaming updates (SSE)
+- [x] tRPC routes for fact-checking
+- [x] Source quality validation
+
 ### 🚧 In Progress
 - [ ] Chrome extension integration
-- [ ] Claim extraction API
-- [ ] Fact-checking worker
-- [ ] Real-time streaming (SSE/WebSocket)
 - [ ] Frontend UI components
+- [ ] User authentication
 
 ## 📝 Scripts
 
@@ -119,14 +133,20 @@ pnpm db:migrate       # Run migrations
 Create a `.env.local` file with:
 
 ```env
-DATABASE_URL="postgresql://..."  # Your Neon database URL
+DATABASE_URL="postgresql://..."           # Your Neon database URL
+OPENROUTER_API_KEY="sk-or-..."           # OpenRouter API key for claim extraction
+PERPLEXITY_API_KEY="pplx-..."            # Perplexity API key for fact-checking
 NODE_ENV="development"
 ```
 
+See `env.example` for complete configuration options.
+
 ## 📚 Documentation
 
-- [Setup Guide](./SETUP.md) - Detailed setup and usage instructions
+- [Fact-Checking Setup](./SETUP_FACT_CHECKING.md) - Quick guide to set up fact-checking
+- [Fact-Checking Documentation](./FACT_CHECKING.md) - Detailed fact-checking system docs
 - [Project Requirements](./Project.md) - Original project specifications
+- [Improvements](./IMPROVEMENTS.md) - Changelog and improvements
 
 ## 🤝 Contributing
 

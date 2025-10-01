@@ -2,6 +2,7 @@ import { router, publicProcedure } from '../init';
 import { z } from 'zod';
 import { claims } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { processClaimFactCheck, processAllPendingClaims } from '@/lib/workers/fact-checker';
 
 /**
  * Claims router - handles claim-related operations
@@ -62,7 +63,7 @@ export const claimsRouter = router({
   updateStatus: publicProcedure
     .input(z.object({
       id: z.string().uuid(),
-      status: z.enum(['pending', 'verified', 'false', 'partially_true', 'unverifiable']),
+      status: z.enum(['pending', 'verified', 'false', 'disputed', 'inconclusive']),
       verdict: z.string().optional(),
       sources: z.string().optional(),
     }))
@@ -79,6 +80,16 @@ export const claimsRouter = router({
         .returning();
       
       return result[0];
+    }),
+
+  // Get pending claims for fact-checking
+  getPending: publicProcedure
+    .query(async ({ ctx }) => {
+      return await ctx.db
+        .select()
+        .from(claims)
+        .where(eq(claims.status, 'pending'))
+        .orderBy(claims.createdAt);
     }),
 
   // Get claims by timestamp range (for syncing with video playback)
@@ -100,6 +111,68 @@ export const claimsRouter = router({
           )
         )
         .orderBy(claims.timestamp);
+    }),
+
+  // Fact-check a single claim
+  factCheckClaim: publicProcedure
+    .input(z.object({
+      claimId: z.string().uuid(),
+    }))
+    .mutation(async ({ input }) => {
+      // Process the claim in the background
+      processClaimFactCheck(input.claimId).catch(error => {
+        console.error('Background fact-checking error:', error);
+      });
+
+      return {
+        success: true,
+        message: `Claim ${input.claimId} is being fact-checked`,
+      };
+    }),
+
+  // Fact-check all pending claims
+  factCheckAllPending: publicProcedure
+    .mutation(async () => {
+      // Process all pending claims in the background
+      processAllPendingClaims().catch(error => {
+        console.error('Background fact-checking error:', error);
+      });
+
+      return {
+        success: true,
+        message: 'Processing all pending claims in the background',
+      };
+    }),
+
+  // Fact-check all pending claims for a specific video
+  factCheckByVideoId: publicProcedure
+    .input(z.object({
+      videoId: z.string(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Get all pending claims for this video
+      const pendingClaims = await ctx.db
+        .select()
+        .from(claims)
+        .where(
+          and(
+            eq(claims.videoId, input.videoId),
+            eq(claims.status, 'pending')
+          )
+        );
+
+      // Process each claim in the background
+      for (const claim of pendingClaims) {
+        processClaimFactCheck(claim.id).catch(error => {
+          console.error(`Error fact-checking claim ${claim.id}:`, error);
+        });
+      }
+
+      return {
+        success: true,
+        message: `Processing ${pendingClaims.length} pending claims for video ${input.videoId}`,
+        claimsCount: pendingClaims.length,
+      };
     }),
 });
 

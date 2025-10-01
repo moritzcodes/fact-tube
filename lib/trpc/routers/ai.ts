@@ -3,15 +3,16 @@ import { z } from 'zod';
 import { env } from '@/lib/env';
 import OpenAI from 'openai';
 import { claims } from '@/lib/db/schema';
+import { processClaimFactCheck } from '@/lib/workers/fact-checker';
 
 /**
- * OpenRouter client configured with GPT-4o-mini
+ * OpenRouter client configured with GPT-4o-mini for claim extraction
  */
 const openai = new OpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
   apiKey: env.OPENROUTER_API_KEY,
   defaultHeaders: {
-    'HTTP-Referer': 'https://fact-tube.app', // Replace with your actual domain
+    'HTTP-Referer': 'https://fact-tube.app',
     'X-Title': 'FactTube',
   },
 });
@@ -57,7 +58,7 @@ export const aiRouter = router({
           contextMessage += '\n\n';
         }
 
-        // Call OpenRouter with GPT-4o-mini
+        // Call OpenRouter with GPT-4o-mini for claim extraction
         const response = await openai.chat.completions.create({
           model: 'openai/gpt-4o-mini',
           messages: [
@@ -138,6 +139,11 @@ If no significant fact-checkable claims exist, return: {"claims": []}`,
             .returning();
           
           savedClaims.push(result[0]);
+
+          // Automatically trigger fact-checking in the background
+          processClaimFactCheck(result[0].id).catch(error => {
+            console.error(`Error auto-triggering fact-check for claim ${result[0].id}:`, error);
+          });
         }
 
         return {
@@ -269,6 +275,11 @@ If no significant fact-checkable claims exist, return: {"claims": []}`,
               .returning();
             
             results.push(result[0]);
+
+            // Automatically trigger fact-checking in the background
+            processClaimFactCheck(result[0].id).catch(error => {
+              console.error(`Error auto-triggering fact-check for claim ${result[0].id}:`, error);
+            });
           }
         } catch (error) {
           console.error('Error processing chunk:', error);

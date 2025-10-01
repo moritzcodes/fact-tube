@@ -1,39 +1,39 @@
 ### 1. **Transcript Capture**
 
 -  [x] Extension gets transcript with `{text, start}` (from YouTube).  
--  [ ] Don’t send the whole transcript at once.  
--  [ ] Instead:  
-    - [ ] Stream **small transcript segments** (e.g., 30–60 seconds of speech) to the backend.  
-    - [ ] This way, claims are extracted chunk by chunk.
+-  [x] Don’t send the whole transcript at once.  
+-  [x] Instead:  
+    - [x] Stream **small transcript segments** (e.g., 30–60 seconds of speech) to the backend.  
+    - [x] This way, claims are extracted chunk by chunk.
 
 ---
 
 ### 2. **Asynchronous Claim Extraction**
 
--  [ ] Each transcript segment is sent via `fetch(/api/extract-claims)` as soon as it’s available.  
--  [ ] Backend runs GPT on that segment → returns claims **with timestamps**.  
--  [ ] Backend streams JSON results to extension using **Server-Sent Events (SSE)** or **WebSocket**.  
--  [ ] Claims are **pushed to UI immediately** (no waiting for the full transcript).
+-  [x] Each transcript segment is sent via `fetch(/api/extract-claims)` as soon as it’s available.  
+-  [x] Backend runs GPT on that segment → returns claims **with timestamps**.  
+-  [x] Backend streams JSON results to extension using **Server-Sent Events (SSE)** or **WebSocket**.  
+-  [x] Claims are **pushed to UI immediately** (no waiting for the full transcript).
 
 ---
 
 ### 3. **Frontend: Sync With Video Playback**
 
--  [ ] Claims arrive in the UI with timestamps:
+-  [x] Claims arrive in the UI with timestamps:
 
     `{ "claim": "Trump says corporate taxes are 35% and he will lower them to 15%.", "speaker": "Donald Trump", "timestamp": 934 // seconds }`
 
--  [ ] UI maintains a **timeline queue**.  
--  [ ] As the YouTube video plays, a timer checks current playback time (via IFrame API).  
--  [ ] Claims whose timestamp ≤ current playback time get revealed (“pop up”) in real-time.
+-  [x] UI maintains a **timeline queue**.  
+-  [x] As the YouTube video plays, a timer checks current playback time (via IFrame API).  
+-  [x] Claims whose timestamp ≤ current playback time get revealed (“pop up”) in real-time.
 
 ---
 
 ### 4. **Fact-Checking (Background)**
 
--  [ ] Claims get written to DB immediately (`status = pending`).  
--  [ ] Fact-check worker processes them async → updates DB.  
--  [ ] Extension subscribes (SSE/WebSocket) → updates claim verdicts in place.
+-  [x] Claims get written to DB immediately (`status = pending`).  
+-  [x] Fact-check worker processes them async → updates DB.  
+-  [x] Extension subscribes (SSE/WebSocket) → updates claim verdicts in place.
 
 ---
 

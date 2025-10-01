@@ -5,8 +5,8 @@ export const claimStatusEnum = pgEnum('claim_status', [
   'pending',
   'verified',
   'false',
-  'partially_true',
-  'unverifiable'
+  'disputed',
+  'inconclusive'
 ]);
 
 // Claims table based on the project requirements
