@@ -1,35 +1,55 @@
 // Messaging and realtime update handlers
 
-YouTubeFactChecker.prototype.handleMessage = function(message) {
+YouTubeFactChecker.prototype.handleMessage = function(message, sendResponse) {
+    console.log('📨 handleMessage called with type:', message.type);
+
     switch (message.type) {
         case 'ACTIVATE_MOCK_MODE':
-            console.log('Mock mode activated from popup');
+            console.log('🎭 Mock mode activated from popup');
             break;
         case 'MOCK_ANALYSIS_COMPLETE':
-            console.log('Mock analysis complete from background');
+            console.log('🎭 Mock analysis complete from background');
             break;
         case 'PROCESSING_STARTED':
+            console.log('⏳ Processing started message received');
             this.isAnalysisInProgress = true;
             this.updateButtonState();
             this.showProcessingIndicator();
             break;
         case 'DATA_LOADED':
+            console.log('📊 DATA_LOADED message received:', message.data);
             this.loadData(message.data);
             break;
         case 'ANALYSIS_COMPLETE':
-            console.log('Analysis complete from background:', message.data);
+            console.log('✅ ANALYSIS_COMPLETE message received:', message.data);
             this.handleAnalysisComplete(message.data);
             break;
         case 'ANALYSIS_ERROR':
-            console.error('Analysis error from background:', message.data);
+            console.error('❌ ANALYSIS_ERROR message received:', message.data);
             this.handleAnalysisError(new Error(message.data.error));
             break;
+        case 'NEW_CLAIM':
+            console.log('🆕 NEW_CLAIM received via SSE:', message.data);
+            this.handleNewClaim(message.data);
+            break;
+        case 'CLAIM_UPDATE':
+            console.log('🔄 CLAIM_UPDATE received via SSE:', message.data);
+            this.handleClaimUpdate(message.data);
+            break;
         case 'REALTIME_UPDATE':
+            console.log('⚡ REALTIME_UPDATE received:', message.data);
             this.handleRealtimeUpdate(message.data);
             break;
         case 'PROCESSING_ERROR':
+            console.error('❌ PROCESSING_ERROR received:', message.data);
             this.handleProcessingError(message.data);
             break;
+        case 'EXTRACT_TRANSCRIPT':
+            console.log('📝 EXTRACT_TRANSCRIPT message received:', message.data);
+            this.handleExtractTranscript(message.data, sendResponse);
+            break;
+        default:
+            console.warn('⚠️ Unknown message type:', message.type);
     }
 };
 
@@ -49,11 +69,20 @@ YouTubeFactChecker.prototype.handleSessionData = function(session) {
 };
 
 YouTubeFactChecker.prototype.loadData = function(data) {
+    console.log('📥 loadData called with data:', data);
+    console.log('📊 Data structure:', {
+        hasClaims: !!data.claims,
+        hasFactChecks: !!data.factChecks,
+        hasClaimResponses: !!data.claim_responses,
+        claimResponsesLength: data.claim_responses ? data.claim_responses.length : 0
+    });
+
     this.claims = data.claims || [];
     this.factChecks = data.factChecks || [];
 
     // Transform API data to match expected mockFactChecks format
     if (data.claim_responses && data.claim_responses.length > 0) {
+        console.log('🔄 Transforming', data.claim_responses.length, 'claim responses...');
         // Transform API response format to match overlay format
         this.mockFactChecks = data.claim_responses.map(claimResponse => ({
             timestamp: claimResponse.claim.start,
@@ -149,7 +178,13 @@ YouTubeFactChecker.prototype.handleRealtimeUpdate = function(data) {
     }
 };
 
-YouTubeFactChecker.prototype.showProcessingIndicator = function() {
+YouTubeFactChecker.prototype.showProcessingIndicator = function(message = 'Analyzing video for claims...') {
+    console.log('🔄 Showing processing indicator:', message);
+
+    // Remove existing indicator if present
+    const existing = document.getElementById('fact-checker-processing');
+    if (existing) existing.remove();
+
     const indicator = document.createElement('div');
     indicator.id = 'fact-checker-processing';
     indicator.style.cssText = `
@@ -158,15 +193,22 @@ YouTubeFactChecker.prototype.showProcessingIndicator = function() {
   `;
     indicator.innerHTML = `
     <div style="width:16px;height:16px;border:2px solid #fff;border-top:2px solid transparent;border-radius:50%;animation:spin 1s linear infinite;"></div>
-    <span>Analyzing video for claims...</span>
+    <span>${message}</span>
     <style>@keyframes spin {0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}</style>
   `;
     document.body.appendChild(indicator);
+    console.log('✅ Processing indicator shown');
 };
 
 YouTubeFactChecker.prototype.hideProcessingIndicator = function() {
+    console.log('🔽 Hiding processing indicator');
     const indicator = document.getElementById('fact-checker-processing');
-    if (indicator) indicator.remove();
+    if (indicator) {
+        indicator.remove();
+        console.log('✅ Processing indicator removed');
+    } else {
+        console.log('ℹ️ No processing indicator to remove');
+    }
 };
 
 YouTubeFactChecker.prototype.addClaim = function(claimData) {
@@ -206,6 +248,66 @@ YouTubeFactChecker.prototype.showCompletionNotification = function(data) {
     setTimeout(() => notification.remove(), 5000);
 };
 
+// Handle new claim from SSE stream
+YouTubeFactChecker.prototype.handleNewClaim = function(claimData) {
+    console.log('Adding new claim to timeline:', claimData);
+
+    // Transform SSE claim format to overlay format
+    const transformedClaim = {
+        timestamp: claimData.claim.start,
+        endTimestamp: claimData.claim.start + 10,
+        claim: claimData.claim.claim,
+        categoryOfLikeness: this.mapApiStatusToCategory(claimData.status),
+        sources: claimData.evidence ? claimData.evidence.map(ev => ev.source_url).filter(Boolean) : [],
+        evidence: claimData.evidence || [],
+        judgement: {
+            reasoning: claimData.written_summary || 'Fact-checking in progress...',
+            summary: claimData.written_summary || 'Status: Pending'
+        },
+        id: claimData.id // Store claim ID for updates
+    };
+
+    // Add to mockFactChecks array
+    this.mockFactChecks.push(transformedClaim);
+
+    // Sort by timestamp
+    this.mockFactChecks.sort((a, b) => a.timestamp - b.timestamp);
+
+    // Update timeline markers
+    this.createTimelineMarkers();
+
+    // Update visible claims if this timestamp is in view
+    this.updateVisibleClaims();
+};
+
+// Handle claim update from SSE stream (e.g., fact-check completed)
+YouTubeFactChecker.prototype.handleClaimUpdate = function(updateData) {
+    console.log('Updating claim:', updateData);
+
+    // Find the claim by ID
+    const claimIndex = this.mockFactChecks.findIndex(c => c.id === updateData.id);
+    if (claimIndex !== -1) {
+        // Update the claim
+        this.mockFactChecks[claimIndex].categoryOfLikeness = this.mapApiStatusToCategory(updateData.status);
+        this.mockFactChecks[claimIndex].judgement = {
+            reasoning: updateData.written_summary || 'Fact-check completed',
+            summary: updateData.written_summary || `Status: ${updateData.status}`
+        };
+        if (updateData.evidence) {
+            this.mockFactChecks[claimIndex].evidence = updateData.evidence;
+            this.mockFactChecks[claimIndex].sources = updateData.evidence.map(ev => ev.source_url).filter(Boolean);
+        }
+
+        // Update timeline markers
+        this.createTimelineMarkers();
+
+        // Update visible claims
+        this.updateVisibleClaims();
+
+        console.log('✅ Claim updated successfully');
+    }
+};
+
 YouTubeFactChecker.prototype.handleProcessingError = function(data) {
     this.isAnalysisInProgress = false;
     this.updateButtonState();
@@ -223,3 +325,88 @@ YouTubeFactChecker.prototype.handleProcessingError = function(data) {
     document.body.appendChild(notification);
     setTimeout(() => notification.remove(), 8000);
 };
+
+// Handle transcript extraction request from background script
+YouTubeFactChecker.prototype.handleExtractTranscript = async function(data, sendResponse) {
+    console.log('📝 Starting transcript extraction for video:', data.videoId);
+    this.showProcessingIndicator('Extracting transcript from video...');
+
+    try {
+        // Extract video metadata
+        const metadata = getVideoMetadata();
+        console.log('📊 Video metadata:', metadata);
+
+        // Fetch transcript
+        const segments = await fetchYouTubeTranscript(data.videoId);
+
+        if (!segments || segments.length === 0) {
+            throw new Error('No transcript available for this video. Please enable captions/subtitles.');
+        }
+
+        console.log(`✅ Transcript extracted: ${segments.length} segments`);
+        this.showProcessingIndicator('Submitting transcript for analysis...');
+
+        // Submit transcript to backend
+        const submitResult = await submitTranscriptToBackend({
+            videoId: data.videoId,
+            videoUrl: data.videoUrl,
+            videoTitle: metadata.title,
+            channelName: metadata.channelName,
+            segments: segments
+        });
+
+        console.log('✅ Transcript submitted successfully:', submitResult);
+        this.showProcessingIndicator('Analyzing claims in video...');
+
+        // Send success response back to background script
+        if (sendResponse) {
+            sendResponse({ success: true, videoId: data.videoId });
+        }
+
+    } catch (error) {
+        console.error('❌ Error extracting transcript:', error);
+        this.hideProcessingIndicator();
+        this.isAnalysisInProgress = false;
+        this.updateButtonState();
+
+        // Show error notification
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed; top: 20px; right: 20px; background: #f44336; color: white; padding: 16px; border-radius: 8px;
+            font-family: Arial, sans-serif; font-size: 14px; z-index: 10000; max-width: 300px;
+        `;
+        notification.innerHTML = `
+            <div style="font-weight: bold; margin-bottom: 8px;">❌ Transcript Error</div>
+            <div style="font-size: 12px;">${error.message}</div>
+        `;
+        document.body.appendChild(notification);
+        setTimeout(() => notification.remove(), 8000);
+
+        // Send error response back to background script
+        if (sendResponse) {
+            sendResponse({ success: false, error: error.message, videoId: data.videoId });
+        }
+    }
+};
+
+// Submit transcript to backend API
+async function submitTranscriptToBackend(data) {
+    console.log('📤 Submitting transcript to backend...');
+
+    const API_BASE_URL = 'http://localhost:3000'; // Should match background.js
+
+    const response = await fetch(`${API_BASE_URL}/api/extension/submit-transcript`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to submit transcript: ${response.statusText} - ${errorText}`);
+    }
+
+    return await response.json();
+}

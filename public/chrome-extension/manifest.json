@@ -11,7 +11,8 @@
     "host_permissions": [
         "*://www.youtube.com/*",
         "*://youtube.com/*",
-        "http://localhost:8000/*"
+        "http://localhost:3000/*",
+        "https://*.vercel.app/*"
     ],
     "background": {
         "service_worker": "background.js",
@@ -20,9 +21,11 @@
     "content_scripts": [{
         "matches": ["*://www.youtube.com/*", "*://youtube.com/*"],
         "js": [
+            "config.js",
             "content.core.js",
             "content.utils.js",
             "content.player.js",
+            "content.transcript.js",
             "content.messaging.js",
             "content.overlay.js",
             "content.mock.js",

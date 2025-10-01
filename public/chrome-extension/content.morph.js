@@ -1,15 +1,20 @@
 YouTubeFactChecker.prototype.createActiveIndicator = function() {
+    console.log('🎨 createActiveIndicator called');
+
     // Remove ALL existing indicators from DOM (from any previous instances)
     const existingIndicators = document.querySelectorAll('#fact-checker-indicator, .fact-checker-fab');
+    console.log('🧹 Found', existingIndicators.length, 'existing indicators to remove');
     existingIndicators.forEach(indicator => indicator.remove());
 
     // Remove existing indicator from this instance
     if (this.activeIndicator) {
+        console.log('🧹 Removing existing indicator from instance');
         this.activeIndicator.remove();
         this.activeIndicator = null;
     }
 
     // Ensure global glass filter exists
+    console.log('🎨 Creating glass filter...');
     this.createGlassFilter();
 
     // Create active state indicator with liquid glass wrapper
@@ -78,22 +83,29 @@ YouTubeFactChecker.prototype.createActiveIndicator = function() {
 
     // Find YouTube player container and add indicator
     const playerContainer = document.querySelector('#movie_player') || document.querySelector('.html5-video-player');
+    console.log('🔍 Player container found:', !!playerContainer);
+
     if (playerContainer) {
         playerContainer.style.position = 'relative';
         playerContainer.appendChild(this.activeIndicator);
+        console.log('✅ Active indicator added to player container');
 
         // Entry delay animation for FAB
         setTimeout(() => {
             requestAnimationFrame(() => {
                 this.activeIndicator.style.opacity = '1';
                 this.activeIndicator.style.transform = 'scale(1)';
+                console.log('✨ FAB animation complete - button visible!');
             });
         }, 200); // 200ms delay for FAB entrance
+    } else {
+        console.error('❌ Could not find player container to attach indicator!');
     }
 
     this.indicatorIcon = null;
     this.isMorphed = false;
     this.isMorphing = false;
+    console.log('✅ createActiveIndicator complete');
 };
 
 YouTubeFactChecker.prototype.addMorphStyles = function() {
@@ -196,7 +208,11 @@ YouTubeFactChecker.prototype.addMorphStyles = function() {
     document.head.appendChild(style);
 };
 YouTubeFactChecker.prototype.createAnalyzeButton = function() {
-    if (!this.activeIndicator) return;
+    console.log('🎨 createAnalyzeButton called');
+    if (!this.activeIndicator) {
+        console.error('❌ No active indicator found, cannot create button');
+        return;
+    }
 
     const buttonContent = document.createElement('div');
     buttonContent.className = 'analyze-button-content';
@@ -206,23 +222,30 @@ YouTubeFactChecker.prototype.createAnalyzeButton = function() {
         font-size: 24px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;
     `;
 
+    console.log('🔄 Updating button state...');
     this.updateButtonState();
     this.activeIndicator.appendChild(buttonContent);
+    console.log('✅ Button content added to indicator');
 };
 
 YouTubeFactChecker.prototype.updateButtonState = function() {
     const buttonContent = this.activeIndicator ? this.activeIndicator.querySelector('.analyze-button-content') : null;
-    if (!buttonContent) return;
+    if (!buttonContent) {
+        console.warn('⚠️ No button content found in updateButtonState');
+        return;
+    }
 
     // Hide button content when morphed/expanded
     if (this.isMorphed) {
         buttonContent.style.display = 'none';
+        console.log('🔽 Button hidden (morphed state)');
         return;
     }
 
     buttonContent.style.display = 'flex';
 
     if (this.isAnalysisInProgress) {
+        console.log('⏳ Button state: Analysis in progress');
         buttonContent.innerHTML = `
             <div style="width:20px;height:20px;border:2px solid #fff;border-top:2px solid transparent;border-radius:50%;animation:spin 1s linear infinite;"></div>
             <style>
@@ -234,8 +257,12 @@ YouTubeFactChecker.prototype.updateButtonState = function() {
         `;
         buttonContent.style.cursor = 'not-allowed';
     } else if (this.mockFactChecks && this.mockFactChecks.length > 0) {
+        console.log('📊 Button state: Data loaded, showing checkmark');
+        buttonContent.innerHTML = '✓';
         buttonContent.style.cursor = 'pointer';
     } else {
+        console.log('🎯 Button state: Ready for analysis');
+        buttonContent.innerHTML = '▶';
         buttonContent.style.cursor = 'pointer';
     }
 };
@@ -243,17 +270,35 @@ YouTubeFactChecker.prototype.updateButtonState = function() {
 YouTubeFactChecker.prototype.setupMorphInteractions = function() {
     if (!this.activeIndicator) return;
 
-    // Click handler disabled - overlay only triggered by video playback
+    // Click handler - starts analysis or closes overlay
     this.activeIndicator.addEventListener('click', () => {
-        console.log('Manual click disabled - overlay only appears during video playback');
+        console.log('🖱️ FAB/Button clicked');
 
-        // Only allow closing if already open
+        // If already morphed (expanded), close it
         if (this.isMorphed) {
-            console.log('Closing overlay via manual click');
+            console.log('🔽 Closing expanded overlay via manual click');
             this.userInteracted = true;
             this.clearAutoCloseTimer();
             this.morphToFab();
+            return;
         }
+
+        // If analysis already in progress, do nothing
+        if (this.isAnalysisInProgress) {
+            console.log('⚠️ Analysis already in progress, ignoring click');
+            return;
+        }
+
+        // If we already have data, show the first claim
+        if (this.mockFactChecks && this.mockFactChecks.length > 0) {
+            console.log('📊 Data already loaded, showing first claim');
+            this.morphToCard(this.mockFactChecks[0], false);
+            return;
+        }
+
+        // Otherwise, start analysis
+        console.log('🚀 Starting analysis from button click...');
+        this.startAnalysis();
     });
 };
 
@@ -591,3 +636,5 @@ YouTubeFactChecker.prototype.markUserInteracted = function() {
     this.userInteracted = true;
     console.log('🔗 User clicked source link - preventing auto-close');
 };
+
+console.log('✅ Content morph module loaded');

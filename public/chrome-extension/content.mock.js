@@ -130,9 +130,13 @@ YouTubeFactChecker.prototype.processVideo = async function(videoUrl) {
 
 
 YouTubeFactChecker.prototype.handleAnalysisComplete = function(result) {
-    console.log('Analysis complete, processing result:', result);
+    console.log('✅ handleAnalysisComplete called');
+    console.log('📊 Result object:', result);
+    console.log('📊 Result keys:', Object.keys(result || {}));
+    console.log('📊 Claim responses:', result.claim_responses);
 
     // Reset analysis state
+    console.log('🔄 Resetting analysis state...');
     this.isAnalysisInProgress = false;
     this.updateButtonState();
     this.hideProcessingIndicator();
@@ -175,9 +179,13 @@ YouTubeFactChecker.prototype.handleAnalysisComplete = function(result) {
 };
 
 YouTubeFactChecker.prototype.handleAnalysisError = function(error) {
-    console.error('Analysis error:', error);
+    console.error('❌ handleAnalysisError called');
+    console.error('❌ Error object:', error);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error stack:', error.stack);
 
     // Reset analysis state
+    console.log('🔄 Resetting analysis state after error...');
     this.isAnalysisInProgress = false;
     this.updateButtonState();
     this.hideProcessingIndicator();
@@ -639,3 +647,5 @@ YouTubeFactChecker.prototype.addTooltipStyles = function() {
     `;
     document.head.appendChild(style);
 };
+
+console.log('✅ Content mock/analysis module loaded');

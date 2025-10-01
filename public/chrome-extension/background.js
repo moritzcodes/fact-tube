@@ -1,16 +1,31 @@
 // Background script for YouTube Fact-Checker extension
 
-const API_BASE_URL = 'http://localhost:8000';
+// API Base URL Configuration
+// For development: Use localhost:3000
+// For production: Update this to your deployed Vercel URL
+const IS_PRODUCTION = false; // Set to true when deploying to production
+
+const API_BASE_URL = IS_PRODUCTION ?
+    'https://your-app.vercel.app' // Update this with your production URL
+    :
+    'http://localhost:3000';
 
 // Mock mode flag - when true, no API calls are made  
 // Set to false to use real backend API
 const MOCK_MODE = false;
+
+console.log('🚀 YouTube Fact-Checker initialized');
+console.log('📡 API Base URL:', API_BASE_URL);
+console.log('🎭 Mock mode:', MOCK_MODE ? 'enabled' : 'disabled');
 
 // Track active fact-checking sessions
 const activeSessions = new Map();
 
 // Cache for storing video analysis results
 const videoCache = new Map();
+
+// Track active SSE connections
+const activeSSEConnections = new Map();
 
 // Initialize cache by checking for existing video analysis files
 async function initializeCache() {
@@ -29,25 +44,19 @@ async function initializeCache() {
     }
 }
 
-// Check what videos are available in cache
+// Check what videos are available in cache (not needed with new backend)
 async function checkCacheStatus() {
-    const response = await fetch(`${API_BASE_URL}/api/cache/status`, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' }
-    });
-
-    if (!response.ok) {
-        throw new Error(`Failed to check cache status: ${response.statusText}`);
-    }
-
-    return await response.json();
+    // New backend doesn't have separate cache endpoint
+    // Claims are automatically cached in the database
+    return { success: true, cached_videos: [] };
 }
 
-// Load cached video data
+// Load cached video data from new backend
 async function loadCachedVideo(videoId) {
     try {
         console.log(`🗄️ Loading cached data for video: ${videoId}`);
-        const response = await fetch(`${API_BASE_URL}/api/cache/video/${videoId}`, {
+        const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+        const response = await fetch(`${API_BASE_URL}/api/extension/process-video?video_url=${encodeURIComponent(videoUrl)}`, {
             method: 'GET',
             headers: { 'Accept': 'application/json' }
         });
@@ -79,15 +88,23 @@ async function isVideoInCache(videoId) {
         return true;
     }
 
-    // If not in cache memory, try checking with backend (maybe cache wasn't initialized)
+    // If not in cache memory, try loading from backend
     try {
         console.log(`🔄 Cache miss for ${videoId}, checking backend directly...`);
-        const cacheStatus = await checkCacheStatus();
-        if (cacheStatus.success && cacheStatus.cached_videos.includes(videoId)) {
-            // Update local cache with this video
-            videoCache.set(videoId, { exists: true, loaded: false });
-            console.log(`✅ Found ${videoId} in backend cache, updated local cache`);
-            return true;
+        const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+        const response = await fetch(`${API_BASE_URL}/api/extension/process-video?video_url=${encodeURIComponent(videoUrl)}`, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            // Check if we got actual claims (cached) or just a processing status
+            if (data.claim_responses && data.claim_responses.length > 0) {
+                videoCache.set(videoId, { exists: true, loaded: false });
+                console.log(`✅ Found ${videoId} in backend cache, updated local cache`);
+                return true;
+            }
         }
     } catch (error) {
         console.warn(`⚠️ Failed to check backend cache for ${videoId}:`, error.message);
@@ -237,6 +254,9 @@ async function handleVideoDetection(tabId, videoId, videoUrl) {
             status: 'processing'
         });
 
+        // Establish SSE connection for real-time updates
+        connectToClaimStream(videoId, tabId);
+
         // Notify content script that processing started
         chrome.tabs.sendMessage(tabId, {
             type: 'PROCESSING_STARTED',
@@ -244,56 +264,67 @@ async function handleVideoDetection(tabId, videoId, videoUrl) {
         });
 
         try {
-            // Process video and get results directly
+            // Check if video is already cached
             const result = await processVideo(videoUrl);
 
             console.log('✅ API Response received successfully!');
             console.log('📊 Response type:', typeof result);
             console.log('📊 Response keys:', Object.keys(result || {}));
-            console.log('📊 Full response object:', result);
+            console.log('📊 Response status:', result.status);
 
-            // Validate the response structure
-            if (result && typeof result === 'object') {
-                console.log('✅ Response is a valid object');
+            // Check if we got cached results (claim_responses array exists)
+            if (result.claim_responses && Array.isArray(result.claim_responses) && result.claim_responses.length > 0) {
+                console.log(`✅ Found ${result.claim_responses.length} cached claim responses`);
 
-                if (result.claim_responses && Array.isArray(result.claim_responses)) {
-                    console.log(`✅ Found ${result.claim_responses.length} claim responses`);
-                    result.claim_responses.forEach((claim, index) => {
-                        console.log(`📋 Claim ${index + 1}:`, {
-                            claim: claim.claim,
-                            status: claim.status,
-                            start: claim.start,
-                            evidenceCount: claim.evidence ? claim.evidence.length : 0
-                        });
-                    });
-                } else {
-                    console.warn('⚠️ No claim_responses array found in response');
-                }
-            } else {
-                console.error('❌ Response is not a valid object:', result);
+                // Update session status with cached data
+                activeSessions.set(videoId, {
+                    tabId,
+                    videoId,
+                    videoUrl,
+                    status: 'completed',
+                    result: result,
+                    fromCache: true
+                });
+
+                // Close SSE connection since we have cached data
+                closeClaimStream(videoId);
+
+                // Send cached data directly to content script
+                console.log('📤 Sending cached ANALYSIS_COMPLETE message to content script...');
+                chrome.tabs.sendMessage(tabId, {
+                    type: 'ANALYSIS_COMPLETE',
+                    data: {...result, fromCache: true }
+                }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.error('❌ Error sending message to content script:', chrome.runtime.lastError);
+                    } else {
+                        console.log('✅ Cached message sent to content script successfully');
+                    }
+                });
             }
+            // If status is "processing", we need to extract and submit the transcript
+            else if (result.status === 'processing') {
+                console.log('⚙️ Video needs processing, extracting transcript...');
 
-            // Update session status
-            activeSessions.set(videoId, {
-                tabId,
-                videoId,
-                videoUrl,
-                status: 'completed',
-                result: result // Store the result in session
-            });
+                // Request transcript extraction from content script
+                chrome.tabs.sendMessage(tabId, {
+                    type: 'EXTRACT_TRANSCRIPT',
+                    data: { videoId, videoUrl }
+                }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.error('❌ Error requesting transcript extraction:', chrome.runtime.lastError);
+                        // Fallback: SSE will handle real-time updates if backend processes it another way
+                        console.log('⏳ Waiting for SSE updates...');
+                    } else if (response && response.success) {
+                        console.log('✅ Transcript extraction started');
+                    }
+                });
 
-            // Send processed data directly to content script
-            console.log('📤 Sending ANALYSIS_COMPLETE message to content script...');
-            chrome.tabs.sendMessage(tabId, {
-                type: 'ANALYSIS_COMPLETE',
-                data: result
-            }, (response) => {
-                if (chrome.runtime.lastError) {
-                    console.error('❌ Error sending message to content script:', chrome.runtime.lastError);
-                } else {
-                    console.log('✅ Message sent to content script successfully');
-                }
-            });
+                // Keep session in processing state - SSE will deliver results
+                console.log('⏳ Waiting for SSE stream to deliver claims...');
+            } else {
+                console.warn('⚠️ Unexpected API response format:', result);
+            }
 
         } catch (error) {
             console.error('❌ Error processing video:', error);
@@ -305,6 +336,9 @@ async function handleVideoDetection(tabId, videoId, videoUrl) {
                 videoUrl,
                 status: 'error'
             });
+
+            // Close SSE connection
+            closeClaimStream(videoId);
 
             // Notify content script of error
             chrome.tabs.sendMessage(tabId, {
@@ -319,18 +353,101 @@ async function handleVideoDetection(tabId, videoId, videoUrl) {
 
 // API Functions
 
+// Establish SSE connection for real-time claim updates
+function connectToClaimStream(videoId, tabId) {
+    // Close existing connection if any
+    const existingConnection = activeSSEConnections.get(videoId);
+    if (existingConnection) {
+        existingConnection.close();
+    }
+
+    console.log(`📡 Establishing SSE connection for video: ${videoId}`);
+    const sseUrl = `${API_BASE_URL}/api/extension/stream-claims?video_id=${videoId}`;
+
+    const eventSource = new EventSource(sseUrl);
+
+    eventSource.onopen = () => {
+        console.log(`✅ SSE connection established for video: ${videoId}`);
+    };
+
+    eventSource.onmessage = (event) => {
+        try {
+            const message = JSON.parse(event.data);
+            console.log('📨 Received SSE message:', message.type, message.data);
+
+            switch (message.type) {
+                case 'connected':
+                    console.log(`🔗 SSE connected for video: ${message.data.videoId}`);
+                    break;
+
+                case 'claim':
+                    // New claim extracted
+                    console.log('🆕 New claim received:', message.data);
+
+                    // Send to content script
+                    chrome.tabs.sendMessage(tabId, {
+                        type: 'NEW_CLAIM',
+                        data: message.data
+                    }, (response) => {
+                        if (chrome.runtime.lastError) {
+                            console.warn('⚠️ Could not send claim to content script:', chrome.runtime.lastError.message);
+                        }
+                    });
+                    break;
+
+                case 'claim_update':
+                    // Claim status updated (e.g., fact-check completed)
+                    console.log('🔄 Claim updated:', message.data);
+
+                    // Send to content script
+                    chrome.tabs.sendMessage(tabId, {
+                        type: 'CLAIM_UPDATE',
+                        data: message.data
+                    }, (response) => {
+                        if (chrome.runtime.lastError) {
+                            console.warn('⚠️ Could not send update to content script:', chrome.runtime.lastError.message);
+                        }
+                    });
+                    break;
+
+                case 'error':
+                    console.error('❌ SSE error:', message.data);
+                    break;
+            }
+        } catch (error) {
+            console.error('❌ Error parsing SSE message:', error);
+        }
+    };
+
+    eventSource.onerror = (error) => {
+        console.error('❌ SSE connection error:', error);
+        eventSource.close();
+        activeSSEConnections.delete(videoId);
+    };
+
+    activeSSEConnections.set(videoId, eventSource);
+}
+
+// Close SSE connection for a video
+function closeClaimStream(videoId) {
+    const connection = activeSSEConnections.get(videoId);
+    if (connection) {
+        console.log(`🔌 Closing SSE connection for video: ${videoId}`);
+        connection.close();
+        activeSSEConnections.delete(videoId);
+    }
+}
+
 async function processVideo(videoUrl) {
     console.log('🌐 processVideo called with URL:', videoUrl);
 
     if (MOCK_MODE) {
         console.log('🎭 Running in mock mode');
-        // In mock mode, return a fake job ID
         return { job_id: 'mock-job-' + Date.now() };
     }
 
-    // Encode the video URL as a query parameter
     const encodedVideoUrl = encodeURIComponent(videoUrl);
-    const apiUrl = `${API_BASE_URL}/api/process-video?video_url=${encodedVideoUrl}`;
+    const apiUrl = `${API_BASE_URL}/api/extension/process-video?video_url=${encodedVideoUrl}`;
     console.log('🚀 Making API call to:', apiUrl);
 
     try {
@@ -342,7 +459,6 @@ async function processVideo(videoUrl) {
         });
 
         console.log('📡 API response status:', response.status, response.statusText);
-        console.log('📡 API response headers:', Object.fromEntries(response.headers.entries()));
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -350,29 +466,15 @@ async function processVideo(videoUrl) {
             throw new Error(`Failed to process video: ${response.statusText} - ${errorText}`);
         }
 
-        // Get the raw response text first to debug
-        const responseText = await response.text();
-        console.log('📄 Raw API response text:', responseText);
-        console.log('📄 Raw API response length:', responseText.length);
-
-        // Try to parse the JSON
-        let result;
-        try {
-            result = JSON.parse(responseText);
-            console.log('✅ Successfully parsed JSON response');
-            console.log('📝 Parsed JSON structure:', {
-                keys: Object.keys(result),
-                video_id: result.video_id,
-                title: result.title,
-                total_claims: result.total_claims,
-                claim_responses_count: result.claim_responses ? result.claim_responses.length : 'undefined'
-            });
-            console.log('📝 Full API response data:', JSON.stringify(result, null, 2));
-        } catch (parseError) {
-            console.error('❌ Failed to parse JSON response:', parseError);
-            console.error('❌ Response text that failed to parse:', responseText);
-            throw new Error(`Invalid JSON response: ${parseError.message}`);
-        }
+        const result = await response.json();
+        console.log('✅ Successfully parsed JSON response');
+        console.log('📝 Response data:', {
+            keys: Object.keys(result),
+            video_id: result.video_id,
+            status: result.status,
+            total_claims: result.total_claims,
+            claim_responses_count: result.claim_responses ? result.claim_responses.length : 'undefined'
+        });
 
         return result;
     } catch (error) {
@@ -388,6 +490,8 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     // Find and remove any sessions associated with this tab
     for (const [videoId, session] of activeSessions.entries()) {
         if (session.tabId === tabId) {
+            // Close SSE connection
+            closeClaimStream(videoId);
             activeSessions.delete(videoId);
             break;
         }

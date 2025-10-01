@@ -80,15 +80,26 @@ fact-tube/
 - **Videos:** YouTube video metadata
 - **Transcript Segments:** Processed transcript chunks
 
-## 🔌 API Routes (tRPC)
+## 🔌 API Routes
+
+### tRPC Routes (Type-safe)
 
 All routes are fully type-safe with end-to-end TypeScript:
 
 - `claims.*` - Claim extraction and verification
 - `videos.*` - Video metadata management
 - `transcripts.*` - Transcript segment processing
+- `ai.*` - AI-powered claim extraction
 
-See [SETUP.md](./SETUP.md) for complete API documentation.
+### Chrome Extension REST APIs
+
+Special endpoints for the chrome extension:
+
+- `GET /api/extension/process-video` - Check for cached claims
+- `POST /api/extension/submit-transcript` - Submit transcript segments
+- `GET /api/extension/stream-claims` - SSE stream for real-time updates
+
+See [CHROME_EXTENSION_SETUP.md](./CHROME_EXTENSION_SETUP.md) for detailed documentation.
 
 ## 🎯 Development Status
 
@@ -108,10 +119,17 @@ See [SETUP.md](./SETUP.md) for complete API documentation.
 - [x] tRPC routes for fact-checking
 - [x] Source quality validation
 
+### ✅ Completed (Phase 3 - Chrome Extension)
+- [x] Chrome extension integration with streaming support
+- [x] Real-time claim updates via Server-Sent Events (SSE)
+- [x] YouTube transcript extraction
+- [x] Timeline overlays and claim popups
+- [x] Database caching for instant loading
+
 ### 🚧 In Progress
-- [ ] Chrome extension integration
-- [ ] Frontend UI components
+- [ ] Frontend UI components (web dashboard)
 - [ ] User authentication
+- [ ] Analytics and usage tracking
 
 ## 📝 Scripts
 
@@ -143,10 +161,30 @@ See `env.example` for complete configuration options.
 
 ## 📚 Documentation
 
+- **[Chrome Extension Setup](./CHROME_EXTENSION_SETUP.md)** - Complete guide to setting up the extension
 - [Fact-Checking Setup](./SETUP_FACT_CHECKING.md) - Quick guide to set up fact-checking
 - [Fact-Checking Documentation](./FACT_CHECKING.md) - Detailed fact-checking system docs
 - [Project Requirements](./Project.md) - Original project specifications
 - [Improvements](./IMPROVEMENTS.md) - Changelog and improvements
+
+### Chrome Extension
+
+The Chrome extension provides real-time fact-checking directly on YouTube:
+
+```bash
+# Load the extension
+1. Go to chrome://extensions/
+2. Enable "Developer mode"
+3. Click "Load unpacked"
+4. Select /public/chrome-extension
+
+# Configure and test
+5. Start backend: pnpm dev
+6. Visit any YouTube video
+7. Click "Fact-Check" button
+```
+
+See [CHROME_EXTENSION_SETUP.md](./CHROME_EXTENSION_SETUP.md) for detailed instructions.
 
 ## 🤝 Contributing
 

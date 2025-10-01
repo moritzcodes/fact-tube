@@ -197,3 +197,5 @@ YouTubeFactChecker.prototype.hideClaimOverlay = function(overlay) {
         setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 400);
     }
 };
+
+console.log('✅ Content overlay module loaded');

@@ -223,3 +223,5 @@ YouTubeFactChecker.prototype.clearAutoCloseTimer = function() {
         this.autoCloseTimer = null;
     }
 };
+
+console.log('✅ Content updates module loaded');

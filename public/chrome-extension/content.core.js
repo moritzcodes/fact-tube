@@ -25,18 +25,35 @@ class YouTubeFactChecker {
     }
 
     init() {
+        console.log('🎯 YouTubeFactChecker.init() called');
+        console.log('🎥 Mock mode:', this.mockMode);
+
         // Wait for YouTube player to load
         this.waitForPlayer().then(() => {
+            console.log('✅ YouTube player detected');
             this.setupTimeTracking();
+            console.log('✅ Time tracking setup complete');
             this.createOverlayContainer();
+            console.log('✅ Overlay container created');
             this.extractVideoId(); // This will create the active indicator
+            console.log('✅ Video ID extracted and indicator created');
             this.setupResizeListener(); // Add resize listener for dynamic repositioning
+            console.log('✅ Resize listener setup complete');
             this.isInitialized = true;
+            console.log('✅ YouTubeFactChecker initialization complete!');
+        }).catch(error => {
+            console.error('❌ Error during initialization:', error);
         });
 
         // Listen for messages from background script
         chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-            this.handleMessage(message);
+            console.log('📨 Content script received message:', message.type);
+            this.handleMessage(message, sendResponse);
+            // Return true to indicate we'll respond asynchronously
+            if (message.type === 'EXTRACT_TRANSCRIPT') {
+                return true;
+            }
         });
+        console.log('✅ Message listener registered');
     }
 }

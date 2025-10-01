@@ -1,13 +1,22 @@
 // Player-related methods and video ID handling
 
 YouTubeFactChecker.prototype.waitForPlayer = function() {
+    console.log('⏳ Waiting for YouTube player...');
     return new Promise((resolve) => {
+        let attempts = 0;
         const checkPlayer = () => {
+            attempts++;
             const player = document.querySelector('video');
+            console.log(`🔍 Player check attempt ${attempts}: player=${!!player}, pathname=${window.location.pathname}`);
+
             if (player && window.location.pathname === '/watch') {
+                console.log('✅ YouTube player found!');
                 this.player = player;
                 resolve();
             } else {
+                if (attempts > 20) {
+                    console.warn('⚠️ Player not found after 20 attempts (10 seconds)');
+                }
                 setTimeout(checkPlayer, 500);
             }
         };
@@ -16,10 +25,13 @@ YouTubeFactChecker.prototype.waitForPlayer = function() {
 };
 
 YouTubeFactChecker.prototype.extractVideoId = function() {
+    console.log('🔍 Extracting video ID from URL...');
     const urlParams = new URLSearchParams(window.location.search);
     const videoId = urlParams.get('v');
+    console.log('🆔 Video ID:', videoId);
 
     if (videoId && videoId !== this.videoId) {
+        console.log('🆕 New video detected:', videoId);
         this.videoId = videoId;
         this.claims = [];
         this.factChecks = [];
@@ -31,24 +43,35 @@ YouTubeFactChecker.prototype.extractVideoId = function() {
         this.clearAutoCloseTimer();
 
         // Create active indicator only once for this video
+        console.log('🎨 Creating active indicator button...');
         this.createActiveIndicator();
+        console.log('✅ Active indicator created');
 
         if (this.mockMode) {
+            console.log('🎭 Loading mock data...');
             // Load mock data instead of API calls
             this.loadMockData();
         } else {
+            console.log('📡 Requesting session data from background script...');
             // Request session data from background script (this will trigger API call)
-            chrome.runtime.sendMessage({
+            safeSendMessage({
                     type: 'GET_SESSION_DATA',
                     videoId: videoId,
                 },
                 (response) => {
+                    console.log('📬 Session data response:', response);
                     if (response) {
                         this.handleSessionData(response);
+                    } else {
+                        console.log('ℹ️ No existing session data, ready for manual analysis');
                     }
                 }
             );
         }
+    } else if (!videoId) {
+        console.warn('⚠️ No video ID found in URL');
+    } else {
+        console.log('ℹ️ Same video ID, skipping re-initialization');
     }
 };
 
