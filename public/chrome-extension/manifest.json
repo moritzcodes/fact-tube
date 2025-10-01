@@ -11,6 +11,7 @@
     "host_permissions": [
         "*://www.youtube.com/*",
         "*://youtube.com/*",
+        "*://*.googlevideo.com/*",
         "http://localhost:3000/*",
         "https://*.vercel.app/*"
     ],
@@ -25,7 +26,6 @@
             "content.core.js",
             "content.utils.js",
             "content.player.js",
-            "content.transcript.js",
             "content.messaging.js",
             "content.overlay.js",
             "content.mock.js",

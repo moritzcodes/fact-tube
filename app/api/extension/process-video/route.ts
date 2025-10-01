@@ -8,6 +8,21 @@ import { eq } from 'drizzle-orm';
  * This endpoint handles the entire flow: transcript fetching, claim extraction, and fact-checking
  */
 
+// CORS headers for Chrome Extension
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+// Handle OPTIONS request for CORS preflight
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: corsHeaders,
+  });
+}
+
 // Extract YouTube video ID from URL
 function extractVideoId(url: string): string | null {
   try {
@@ -30,7 +45,7 @@ export async function GET(request: NextRequest) {
   if (!videoUrl) {
     return new Response(JSON.stringify({ error: 'video_url parameter is required' }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   }
 
@@ -38,7 +53,7 @@ export async function GET(request: NextRequest) {
   if (!videoId) {
     return new Response(JSON.stringify({ error: 'Invalid YouTube URL' }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   }
 
@@ -82,7 +97,7 @@ export async function GET(request: NextRequest) {
 
       return new Response(JSON.stringify(response), {
         status: 200,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
@@ -95,7 +110,7 @@ export async function GET(request: NextRequest) {
       }),
       {
         status: 202,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       }
     );
   } catch (error) {
@@ -104,7 +119,7 @@ export async function GET(request: NextRequest) {
       JSON.stringify({ error: 'Failed to process video' }),
       {
         status: 500,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       }
     );
   }

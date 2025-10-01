@@ -21,6 +21,21 @@ const openai = new OpenAI({
   },
 });
 
+// CORS headers for Chrome Extension
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+// Handle OPTIONS request for CORS preflight
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: corsHeaders,
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -29,7 +44,7 @@ export async function POST(request: NextRequest) {
     if (!videoId || !segments || !Array.isArray(segments)) {
       return NextResponse.json(
         { error: 'videoId and segments array are required' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -166,12 +181,12 @@ If no significant fact-checkable claims exist, return: {"claims": []}`,
         timestamp: claim.timestamp,
         status: claim.status,
       })),
-    });
+    }, { headers: corsHeaders });
   } catch (error) {
     console.error('Error processing transcript:', error);
     return NextResponse.json(
       { error: 'Failed to process transcript segment' },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }

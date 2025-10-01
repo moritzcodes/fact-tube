@@ -328,43 +328,49 @@ YouTubeFactChecker.prototype.handleProcessingError = function(data) {
 
 // Handle transcript extraction request from background script
 YouTubeFactChecker.prototype.handleExtractTranscript = async function(data, sendResponse) {
-    console.log('📝 Starting transcript extraction for video:', data.videoId);
-    this.showProcessingIndicator('Extracting transcript from video...');
-
+    console.log('📝 Starting video analysis for:', data.videoId);
+    this.showProcessingIndicator('Analyzing video...');
+    const API_BASE_URL = 'http://localhost:3000';
     try {
-        // Extract video metadata
-        const metadata = getVideoMetadata();
-        console.log('📊 Video metadata:', metadata);
+        // Send video ID to backend - it handles everything server-side
+        console.log('📤 Sending video ID to backend for analysis...');
 
-        // Fetch transcript
-        const segments = await fetchYouTubeTranscript(data.videoId);
-
-        if (!segments || segments.length === 0) {
-            throw new Error('No transcript available for this video. Please enable captions/subtitles.');
-        }
-
-        console.log(`✅ Transcript extracted: ${segments.length} segments`);
-        this.showProcessingIndicator('Submitting transcript for analysis...');
-
-        // Submit transcript to backend
-        const submitResult = await submitTranscriptToBackend({
-            videoId: data.videoId,
-            videoUrl: data.videoUrl,
-            videoTitle: metadata.title,
-            channelName: metadata.channelName,
-            segments: segments
+        const response = await fetch(`${API_BASE_URL}/api/extension/analyze-video`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                videoId: data.videoId,
+            }),
         });
 
-        console.log('✅ Transcript submitted successfully:', submitResult);
-        this.showProcessingIndicator('Analyzing claims in video...');
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || errorData.error || `Failed to analyze video: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        console.log('✅ Video analysis complete:', result);
+
+        if (result.cached) {
+            this.showProcessingIndicator(`Found ${result.totalClaims} cached claims. Checking for updates...`);
+        } else {
+            this.showProcessingIndicator(`Extracted ${result.totalClaims} claims. Fact-checking in progress...`);
+        }
 
         // Send success response back to background script
         if (sendResponse) {
-            sendResponse({ success: true, videoId: data.videoId });
+            sendResponse({
+                success: true,
+                videoId: data.videoId,
+                totalClaims: result.totalClaims,
+                cached: result.cached,
+            });
         }
 
     } catch (error) {
-        console.error('❌ Error extracting transcript:', error);
+        console.error('❌ Error analyzing video:', error);
         this.hideProcessingIndicator();
         this.isAnalysisInProgress = false;
         this.updateButtonState();
@@ -373,10 +379,10 @@ YouTubeFactChecker.prototype.handleExtractTranscript = async function(data, send
         const notification = document.createElement('div');
         notification.style.cssText = `
             position: fixed; top: 20px; right: 20px; background: #f44336; color: white; padding: 16px; border-radius: 8px;
-            font-family: Arial, sans-serif; font-size: 14px; z-index: 10000; max-width: 300px;
+            font-family: Arial, sans-serif; font-size: 14px; z-index: 10000; max-width: 300px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         `;
         notification.innerHTML = `
-            <div style="font-weight: bold; margin-bottom: 8px;">❌ Transcript Error</div>
+            <div style="font-weight: bold; margin-bottom: 8px;">❌ Analysis Error</div>
             <div style="font-size: 12px;">${error.message}</div>
         `;
         document.body.appendChild(notification);
@@ -389,24 +395,5 @@ YouTubeFactChecker.prototype.handleExtractTranscript = async function(data, send
     }
 };
 
-// Submit transcript to backend API
-async function submitTranscriptToBackend(data) {
-    console.log('📤 Submitting transcript to backend...');
-
-    const API_BASE_URL = 'http://localhost:3000'; // Should match background.js
-
-    const response = await fetch(`${API_BASE_URL}/api/extension/submit-transcript`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to submit transcript: ${response.statusText} - ${errorText}`);
-    }
-
-    return await response.json();
-}
+// OLD: submitTranscriptToBackend - NO LONGER NEEDED
+// Backend now handles transcript extraction server-side

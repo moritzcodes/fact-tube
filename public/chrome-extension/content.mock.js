@@ -102,7 +102,7 @@ YouTubeFactChecker.prototype.extractVideoIdFromUrl = function(url) {
 };
 
 YouTubeFactChecker.prototype.processVideo = async function(videoUrl) {
-    const API_BASE_URL = 'http://localhost:8000';
+    const API_BASE_URL = 'http://localhost:3000';
 
     try {
         // Encode the video URL as a query parameter

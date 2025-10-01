@@ -10,6 +10,21 @@ import { eq, gt } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
+// CORS headers for Chrome Extension
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+// Handle OPTIONS request for CORS preflight
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: corsHeaders,
+  });
+}
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const videoId = searchParams.get('video_id');
@@ -17,7 +32,7 @@ export async function GET(request: NextRequest) {
   if (!videoId) {
     return new Response(JSON.stringify({ error: 'video_id parameter is required' }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   }
 
@@ -103,6 +118,7 @@ export async function GET(request: NextRequest) {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
+      ...corsHeaders,
     },
   });
 }
