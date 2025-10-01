@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { videos, claims } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { Innertube } from 'youtubei.js';
 import OpenAI from 'openai';
 import { env } from '@/lib/env';
@@ -223,8 +223,26 @@ If no significant fact-checkable claims exist, return: {"claims": []}`,
           const parsed = JSON.parse(content);
           const extractedClaims = parsed.claims || [];
 
-          // Save claims to database
+          // Save claims to database (with duplicate check)
           for (const claim of extractedClaims) {
+            // Check if this claim already exists for this video
+            const existingClaim = await db
+              .select()
+              .from(claims)
+              .where(
+                and(
+                  eq(claims.videoId, videoId),
+                  eq(claims.claim, claim.claim)
+                )
+              )
+              .limit(1);
+
+            // Skip if duplicate claim already exists
+            if (existingClaim.length > 0) {
+              console.log(`⏭️  Skipping duplicate claim: "${claim.claim}"`);
+              continue;
+            }
+
             const result = await db
               .insert(claims)
               .values({

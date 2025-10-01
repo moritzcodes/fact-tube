@@ -27,12 +27,23 @@ YouTubeFactChecker.prototype.createOverlayContainer = function() {
 };
 
 YouTubeFactChecker.prototype.clearOverlays = function() {
+    console.log('🧹 clearOverlays called');
+
     if (this.isMorphed) this.morphToFab();
     this.clearTimeouts();
 
-    // Clear timeline markers
+    // Clear timeline markers - use multiple approaches to ensure removal
     const existingMarkers = document.querySelectorAll('.fact-check-timeline-marker');
+    console.log('🧹 Removing', existingMarkers.length, 'timeline markers from clearOverlays');
     existingMarkers.forEach((marker) => marker.remove());
+
+    // Also check in progress bar container specifically
+    const progressContainer = document.querySelector('.ytp-progress-bar-container');
+    if (progressContainer) {
+        const markersInProgress = progressContainer.querySelectorAll('.fact-check-timeline-marker');
+        console.log('🧹 Found', markersInProgress.length, 'markers in progress container');
+        markersInProgress.forEach((marker) => marker.remove());
+    }
 
     // Clear tooltips
     this.hideTimelineTooltip();
@@ -42,6 +53,7 @@ YouTubeFactChecker.prototype.clearOverlays = function() {
     if (svgFilter) svgFilter.remove();
 
     this.currentDisplayedClaim = null;
+    console.log('✅ clearOverlays complete');
 };
 
 console.log('✅ Content overlay module loaded');

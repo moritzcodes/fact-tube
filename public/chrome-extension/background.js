@@ -467,7 +467,30 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('📨 Background received message:', message.type, message);
 
-    if (message.type === 'GET_SESSION_DATA') {
+    if (message.type === 'VIDEO_CHANGED') {
+        // Content script notifies us of a video change
+        const videoId = message.videoId;
+        const tabId = sender.tab ? sender.tab.id : message.tabId;
+        console.log('🔄 Video changed to:', videoId, 'on tab:', tabId);
+
+        // Close any old SSE connections for the previous video
+        // Find old sessions for this tab and close their connections
+        for (const [oldVideoId, session] of activeSessions.entries()) {
+            if (session.tabId === tabId && oldVideoId !== videoId) {
+                console.log('🔌 Closing old SSE connection for previous video:', oldVideoId);
+                closeClaimStream(oldVideoId);
+                activeSessions.delete(oldVideoId);
+            }
+        }
+
+        // Initialize new session
+        if (videoId) {
+            const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+            initializeSession(tabId, videoId, videoUrl);
+        }
+
+        sendResponse({ success: true });
+    } else if (message.type === 'GET_SESSION_DATA') {
         const videoId = message.videoId;
         const session = activeSessions.get(videoId);
         console.log('📋 GET_SESSION_DATA for video:', videoId, 'session:', session);

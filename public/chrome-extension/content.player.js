@@ -32,15 +32,27 @@ YouTubeFactChecker.prototype.extractVideoId = function() {
 
     if (videoId && videoId !== this.videoId) {
         console.log('🆕 New video detected:', videoId);
+
+        // Aggressively remove ALL old timeline markers before setting new video ID
+        const allMarkers = document.querySelectorAll('.fact-check-timeline-marker');
+        if (allMarkers.length > 0) {
+            console.log('🧹 Force-removing', allMarkers.length, 'old timeline markers');
+            allMarkers.forEach(marker => marker.remove());
+        }
+
         this.videoId = videoId;
         this.claims = [];
         this.factChecks = [];
+        this.mockFactChecks = []; // Clear fact-check data for new video
         this.clearOverlays();
         this.clearTimeouts();
 
         // Reset interaction tracking for new video
         this.userInteracted = false;
         this.clearAutoCloseTimer();
+
+        // Reset analysis state
+        this.isAnalysisInProgress = false;
 
         // Create active indicator only once for this video
         console.log('🎨 Creating active indicator button...');

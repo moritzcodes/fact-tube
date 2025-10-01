@@ -243,9 +243,11 @@ YouTubeFactChecker.prototype.updateButtonState = function() {
         return;
     }
 
+    // Show button content when in small circle form
     buttonContent.style.display = 'flex';
 
     if (this.isAnalysisInProgress) {
+        // Only show loading when NOT morphed (in small circle form)
         console.log('⏳ Button state: Analysis in progress');
         buttonContent.innerHTML = `
             <div style="width:20px;height:20px;border:2px solid #fff;border-top:2px solid transparent;border-radius:50%;animation:spin 1s linear infinite;"></div>
@@ -258,12 +260,17 @@ YouTubeFactChecker.prototype.updateButtonState = function() {
         `;
         buttonContent.style.cursor = 'not-allowed';
     } else if (this.mockFactChecks && this.mockFactChecks.length > 0) {
+        // Data loaded - show checkmark
         console.log('📊 Button state: Data loaded, showing checkmark');
+        buttonContent.innerHTML = '✓';
         buttonContent.style.cursor = 'pointer';
+        buttonContent.style.fontSize = '24px';
     } else {
+        // Ready for analysis - show play button
         console.log('🎯 Button state: Ready for analysis');
         buttonContent.innerHTML = '▶';
         buttonContent.style.cursor = 'pointer';
+        buttonContent.style.fontSize = '24px';
     }
 };
 
@@ -305,6 +312,9 @@ YouTubeFactChecker.prototype.morphToCard = function(factCheckData = null, isAuto
     // Prevent multiple morphs in rapid succession
     this.isMorphing = true;
     this.isMorphed = true;
+
+    // Update button state to hide loading/button when morphed
+    this.updateButtonState();
 
     // Use real API data or find current claim based on video timestamp
     let contentData = factCheckData;
@@ -382,6 +392,10 @@ YouTubeFactChecker.prototype.morphToFab = function() {
         setTimeout(() => { this.activeIndicator.classList.remove('morphed'); }, 50);
         setTimeout(() => {
             this.clearCardContent();
+
+            // Update button state to show checkmark/play icon when back to small circle
+            this.updateButtonState();
+
             // Reset user interaction flag after a delay to allow future auto-opens
             setTimeout(() => {
                 this.userInteracted = false;
