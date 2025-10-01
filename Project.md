@@ -1,6 +1,6 @@
 ### 1. **Transcript Capture**
 
--  [ ] Extension gets transcript with `{text, start}` (from YouTube).  
+-  [x] Extension gets transcript with `{text, start}` (from YouTube).  
 -  [ ] Don’t send the whole transcript at once.  
 -  [ ] Instead:  
     - [ ] Stream **small transcript segments** (e.g., 30–60 seconds of speech) to the backend.  

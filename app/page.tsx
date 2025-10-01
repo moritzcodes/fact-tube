@@ -1,13 +1,18 @@
 'use client';
 
 import { trpc } from '@/lib/trpc/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import { chunkSegmentsByTime } from '@/lib/types/transcript';
 
 export default function Home() {
   const [videoInput, setVideoInput] = useState('');
   const [selectedLang, setSelectedLang] = useState('en');
   const [fetchedVideoId, setFetchedVideoId] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processedChunks, setProcessedChunks] = useState(0);
+  const [totalChunks, setTotalChunks] = useState(0);
+  const [extractedClaims, setExtractedClaims] = useState<any[]>([]);
 
   // Fetch transcript from YouTube
   const { data: transcript, isLoading: transcriptLoading, error: transcriptError } = 
@@ -15,6 +20,15 @@ export default function Home() {
       { videoId: fetchedVideoId!, lang: selectedLang },
       { enabled: !!fetchedVideoId }
     );
+
+  // Mutation for extracting claims
+  const extractClaimsMutation = trpc.ai.extractClaims.useMutation();
+  
+  // Get all claims for the current video
+  const { data: videoClaims, refetch: refetchClaims } = trpc.claims.getByVideoId.useQuery(
+    { videoId: fetchedVideoId! },
+    { enabled: !!fetchedVideoId }
+  );
 
   const handleFetchTranscript = (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +39,58 @@ export default function Home() {
     }
     
     setFetchedVideoId(videoInput.trim());
+    setExtractedClaims([]);
     toast.info('Fetching transcript...');
+  };
+
+  // Process transcript segments asynchronously
+  const handleProcessSegments = async () => {
+    if (!transcript || !fetchedVideoId) {
+      toast.error('No transcript to process');
+      return;
+    }
+
+    setIsProcessing(true);
+    setProcessedChunks(0);
+    setExtractedClaims([]);
+    
+    try {
+      // Chunk segments into 60-second groups
+      const chunks = chunkSegmentsByTime(transcript.segments, 60);
+      setTotalChunks(chunks.length);
+      
+      toast.info(`Processing ${chunks.length} segments...`);
+
+      // Process each chunk asynchronously
+      const allClaims: any[] = [];
+      for (let i = 0; i < chunks.length; i++) {
+        try {
+          const result = await extractClaimsMutation.mutateAsync({
+            videoId: fetchedVideoId,
+            segments: chunks[i],
+          });
+          
+          allClaims.push(...result.claims);
+          setExtractedClaims(prev => [...prev, ...result.claims]);
+          setProcessedChunks(i + 1);
+          
+          toast.success(`Chunk ${i + 1}/${chunks.length}: ${result.claimsExtracted} claims found`);
+        } catch (error) {
+          console.error(`Error processing chunk ${i + 1}:`, error);
+          toast.error(`Failed to process chunk ${i + 1}`);
+        }
+      }
+
+      // Refetch all claims from database
+      await refetchClaims();
+      
+      toast.success(`✓ Processing complete! ${allClaims.length} total claims extracted.`);
+    } catch (error) {
+      console.error('Error processing segments:', error);
+      toast.error('Failed to process segments');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const formatTimestamp = (seconds: number) => {
@@ -156,7 +221,84 @@ export default function Home() {
               </details>
             </div>
           )}
+
+          {/* Process Segments Button */}
+          {transcript && (
+            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <h3 className="font-semibold mb-3">AI Claim Extraction</h3>
+              <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
+                Use GPT-4o-mini (via OpenRouter) to extract factual claims from the transcript segments.
+                Segments will be processed in 60-second chunks asynchronously.
+              </p>
+              <button
+                onClick={handleProcessSegments}
+                disabled={isProcessing || !transcript}
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+              >
+                {isProcessing 
+                  ? `Processing... (${processedChunks}/${totalChunks})` 
+                  : 'Extract Claims with AI'}
+              </button>
+              
+              {isProcessing && (
+                <div className="mt-3">
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${(processedChunks / totalChunks) * 100}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    {processedChunks} of {totalChunks} chunks processed
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
+
+        {/* Extracted Claims Section */}
+        {(extractedClaims.length > 0 || (videoClaims && videoClaims.length > 0)) && (
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-8">
+            <h2 className="text-2xl font-semibold mb-4">Extracted Claims</h2>
+            
+            <div className="space-y-3">
+              {(videoClaims || extractedClaims).map((claim: any, index: number) => (
+                <div 
+                  key={claim.id || index}
+                  className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                >
+                  <div className="flex gap-4">
+                    <div className="flex-shrink-0 w-20 text-sm font-mono text-blue-600 dark:text-blue-400">
+                      {formatTimestamp(claim.timestamp)}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium mb-1">{claim.claim}</p>
+                      {claim.speaker && (
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          Speaker: {claim.speaker}
+                        </p>
+                      )}
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          claim.status === 'pending' 
+                            ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' 
+                            : claim.status === 'verified'
+                            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                            : claim.status === 'false'
+                            ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400'
+                        }`}>
+                          {claim.status}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Available Routes Reference */}
         <div className="mt-8 p-6 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
@@ -188,6 +330,13 @@ export default function Home() {
                 <li><code>claims.create</code> - Create a new claim</li>
                 <li><code>claims.updateStatus</code> - Update claim verification status</li>
                 <li><code>claims.getByTimeRange</code> - Get claims by time range</li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-semibold text-blue-600 dark:text-blue-400">AI Processing (NEW):</h3>
+              <ul className="list-disc list-inside ml-4 space-y-1 text-gray-700 dark:text-gray-300">
+                <li><code>ai.extractClaims</code> - Extract claims from transcript segments using GPT-4o-mini</li>
+                <li><code>ai.extractClaimsBatch</code> - Batch process multiple segment chunks</li>
               </ul>
             </div>
           </div>
