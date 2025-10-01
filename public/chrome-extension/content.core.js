@@ -20,7 +20,10 @@ class YouTubeFactChecker {
         this.isAnalysisInProgress = false; // Track analysis state
         this.mockFactChecks = []; // Store fact-check results
         this.userInteracted = false; // Track if user has manually interacted with overlay
-        this.autoCloseTimer = null; // Timer for auto-closing overlay
+        this.autoCloseTimer = null; // Timer for auto-closing overlay (legacy)
+        this.videoPlaybackTimer = null; // Timer for video playback-based auto-close
+        this.autoCloseTargetTime = null; // Target video time for auto-close
+        this.autoCloseClaimTimestamp = null; // Claim timestamp for auto-close verification
     }
 
     init() {

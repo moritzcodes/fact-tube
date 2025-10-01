@@ -52,7 +52,7 @@ YouTubeFactChecker.prototype.createActiveIndicator = function() {
     const topPosition = Math.max(margin, Math.min(margin, containerRect.height - this.motionTokens.card.height - margin));
 
     this.activeIndicator.style.cssText = `
-    position: absolute; top: ${topPosition}px; ${horizontalPosition}; z-index: 1001; cursor: pointer; display: flex;
+    position: absolute; top: ${topPosition}px; ${horizontalPosition}; z-index: 1001; display: flex;
     width: ${this.motionTokens.fab.width}px; height: ${this.motionTokens.fab.height}px; border-radius: ${this.motionTokens.fab.borderRadius}px;
     transition: all ${this.motionTokens.duration}ms cubic-bezier(0.34, 1.56, 0.64, 1);
     will-change: width, height, border-radius, box-shadow;
@@ -219,8 +219,8 @@ YouTubeFactChecker.prototype.createAnalyzeButton = function() {
     buttonContent.className = 'analyze-button-content';
     buttonContent.style.cssText = `
         position: relative; z-index: 4; display: flex; align-items: center; justify-content: center;
-        width: 100%; height: 100%; color: white; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        font-size: 24px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;
+         height: 100%; color: white; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 24px; font-weight: 600; transition: all 0.2s ease;
     `;
 
     console.log('🔄 Updating button state...');
@@ -270,16 +270,14 @@ YouTubeFactChecker.prototype.updateButtonState = function() {
 YouTubeFactChecker.prototype.setupMorphInteractions = function() {
     if (!this.activeIndicator) return;
 
-    // Click handler - starts analysis or closes overlay
-    this.activeIndicator.addEventListener('click', () => {
+    // Click handler - starts analysis or allows content interaction
+    this.activeIndicator.addEventListener('click', (event) => {
         console.log('🖱️ FAB/Button clicked');
 
-        // If already morphed (expanded), close it
+        // If already morphed (expanded), only allow content interaction, don't close
         if (this.isMorphed) {
-            console.log('🔽 Closing expanded overlay via manual click');
-            this.userInteracted = true;
-            this.clearAutoCloseTimer();
-            this.morphToFab();
+            console.log('📋 Expanded card clicked - allowing content interaction');
+            // Don't close the card, let users interact with content (buttons, links, etc.)
             return;
         }
 
@@ -289,10 +287,9 @@ YouTubeFactChecker.prototype.setupMorphInteractions = function() {
             return;
         }
 
-        // If we already have data, show the first claim
+        // If we already have data, clicking the circle does nothing (auto-open handles showing claims)
         if (this.mockFactChecks && this.mockFactChecks.length > 0) {
-            console.log('📊 Data already loaded, showing first claim');
-            this.morphToCard(this.mockFactChecks[0], false);
+            console.log('📊 Data already loaded - circle click disabled to prevent showing claims');
             return;
         }
 
@@ -436,7 +433,7 @@ YouTubeFactChecker.prototype.injectCardContent = function(factCheckData, keepHid
         transform: translateY(${keepHidden ? '8px' : '0'});
         transition: opacity 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
         color: white; width: 100%; position: relative; z-index: 4; pointer-events: auto; box-sizing: border-box;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
     `;
 
@@ -458,20 +455,45 @@ YouTubeFactChecker.prototype.injectCardContent = function(factCheckData, keepHid
             <div id="analysis-text-${factCheckData.timestamp || Date.now()}" style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; transition: all 0.3s ease;">
                 ${factCheckData.judgement.reasoning || factCheckData.judgement.summary || 'No detailed explanation available'}
             </div>
-            <button id="expand-btn-${factCheckData.timestamp || Date.now()}" onclick="window.factChecker.toggleAnalysis('${factCheckData.timestamp || Date.now()}')" 
-                    style="background: none; border: none; color: rgba(255,255,255,0.7); font-size: 10px; cursor: pointer; 
+            <button id="expand-btn-${factCheckData.timestamp || Date.now()}" onclick="window.factChecker.toggleAnalysis('${factCheckData.timestamp || Date.now()}')"
+                    style="background: none; border: none; color: rgba(255,255,255,0.7); font-size: 10px; cursor: pointer;
                            margin-top: 4px; padding: 0; text-decoration: underline; transition: color 0.2s ease;"
                     onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">
                 Show more
             </button>
         </div>
         ${sourcesPreview}
-        
+
+        <!-- Minimize button in bottom right corner -->
+        <button id="minimize-btn-${factCheckData.timestamp || Date.now()}" onclick="window.factChecker.minimizeCard()"
+                style="
+                    position: absolute;
+                    bottom: 0px;
+                    right: 0px;
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 50%;
+                    background: rgba(255,255,255,0.2);
+                    border: 1px solid rgba(255,255,255,0.3);
+                    color: white;
+                    font-size: 12px;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.2s ease;
+                    z-index: 10;
+                "
+                onmouseover="this.style.background='rgba(255,255,255,0.3)'; this.style.transform='scale(1.1)'"
+                onmouseout="this.style.background='rgba(255,255,255,0.2)'; this.style.transform='scale(1)'"
+                title="Minimize">
+            ×
+        </button>
     `;
 
     this.activeIndicator.appendChild(content);
 
-    // Make the fact checker available globally for navigation
+    // Make the fact checker available globally for navigation and minimize functionality
     window.factChecker = this;
 };
 
@@ -635,6 +657,13 @@ YouTubeFactChecker.prototype.markUserInteracted = function() {
     // Mark that user has interacted to prevent auto-closing
     this.userInteracted = true;
     console.log('🔗 User clicked source link - preventing auto-close');
+};
+
+YouTubeFactChecker.prototype.minimizeCard = function() {
+    console.log('🔽 Minimizing card via minimize button');
+    this.userInteracted = true;
+    this.clearAutoCloseTimer();
+    this.morphToFab();
 };
 
 console.log('✅ Content morph module loaded');

@@ -142,7 +142,6 @@ YouTubeFactChecker.prototype._updateFabVisualState = function(claim) {
 
     // Only update visual state if it's different from current state
     const newBackground = this._getClaimBackgroundColor(claim);
-    const newBoxShadow = this._getClaimBoxShadow(claim);
 
     if (this.activeIndicator.style.background !== newBackground) {
         this.activeIndicator.style.background = newBackground;
@@ -160,15 +159,6 @@ YouTubeFactChecker.prototype._getClaimBackgroundColor = function(claim) {
     }
 };
 
-YouTubeFactChecker.prototype._getClaimBoxShadow = function(claim) {
-    if (claim.categoryOfLikeness === 'false') {
-        return '0 0 0 1px rgba(255, 255, 255, 0.4), 0 8px 24px rgba(255, 59, 48, 0.3)';
-    } else if (claim.categoryOfLikeness === 'neutral') {
-        return '0 0 0 1px rgba(255, 255, 255, 0.4), 0 8px 24px rgba(255, 149, 0, 0.3)';
-    } else {
-        return '0 0 0 1px rgba(255, 255, 255, 0.4), 0 8px 24px rgba(10, 132, 255, 0.3)';
-    }
-};
 
 YouTubeFactChecker.prototype._getClaimStartTime = function(claim) {
     // Handle different data structures:
@@ -177,7 +167,7 @@ YouTubeFactChecker.prototype._getClaimStartTime = function(claim) {
     return claim.timestamp || claim.start || (claim.claim && claim.claim.start) || 0;
 };
 
-// Auto-close functionality
+// Auto-close functionality - based on video playback time
 YouTubeFactChecker.prototype.scheduleAutoClose = function(claim) {
     // Clear any existing auto-close timer
     this.clearAutoCloseTimer();
@@ -188,33 +178,56 @@ YouTubeFactChecker.prototype.scheduleAutoClose = function(claim) {
         return;
     }
 
-    // Configure auto-close duration (in seconds)
-    const autoCloseDuration = claim.autoCloseDuration || 8; // Default 8 seconds
+    // Configure auto-close duration (in seconds of video playback)
+    const autoCloseDuration = claim.autoCloseDuration || 8; // Default 8 seconds of video time
+    const claimStartTime = this._getClaimStartTime(claim);
+    const targetEndTime = claimStartTime + autoCloseDuration;
 
-    console.log(`⏰ Scheduling auto-close for claim at ${claim.timestamp}s in ${autoCloseDuration} seconds`);
+    console.log(`⏰ Scheduling auto-close for claim at ${claimStartTime}s - will close after ${autoCloseDuration}s of video playback (at ${targetEndTime}s)`);
 
-    this.autoCloseTimer = setTimeout(() => {
-        // Only auto-close if:
-        // 1. We're still morphed
-        // 2. User hasn't interacted
-        // 3. The current claim is still the same one we scheduled for
-        if (this.isMorphed && !this.userInteracted &&
-            this.currentDisplayedClaim &&
-            this.currentDisplayedClaim.timestamp === claim.timestamp) {
+    // Store the target end time for video playback-based checking
+    this.autoCloseTargetTime = targetEndTime;
+    this.autoCloseClaimTimestamp = claim.timestamp;
 
-            console.log('⏰ Auto-closing fact-check overlay after timeout');
-            this.morphToFab();
-            this.currentDisplayedClaim = null;
-        } else {
-            console.log('⏰ Auto-close cancelled - conditions not met:', {
-                isMorphed: this.isMorphed,
-                userInteracted: this.userInteracted,
-                hasCurrentClaim: !!this.currentDisplayedClaim,
-                timestampMatch: this.currentDisplayedClaim ? this.currentDisplayedClaim.timestamp === claim.timestamp : false
-            });
+    // Set up a video playback-based timer check
+    this.startVideoPlaybackTimer();
+};
+
+// Start or restart the video playback timer
+YouTubeFactChecker.prototype.startVideoPlaybackTimer = function() {
+    if (this.videoPlaybackTimer) {
+        clearInterval(this.videoPlaybackTimer);
+    }
+
+    this.videoPlaybackTimer = setInterval(() => {
+        // Only check if we're morphed and haven't been interacted with
+        if (this.isMorphed && !this.userInteracted && this.autoCloseTargetTime) {
+            // Check if we've reached the target playback time
+            if (this.currentTime >= this.autoCloseTargetTime) {
+                // Verify this is still the same claim we scheduled for
+                if (this.currentDisplayedClaim &&
+                    this.currentDisplayedClaim.timestamp === this.autoCloseClaimTimestamp) {
+
+                    console.log('⏰ Auto-closing fact-check overlay after video playback timeout');
+                    this.morphToFab();
+                    this.currentDisplayedClaim = null;
+                    this.clearVideoPlaybackTimer();
+                }
+            }
+        } else if (!this.isMorphed || this.userInteracted) {
+            // Stop the timer if conditions are no longer met
+            this.clearVideoPlaybackTimer();
         }
-        this.autoCloseTimer = null;
-    }, autoCloseDuration * 1000);
+    }, 500); // Check every 500ms for responsive playback-based timing
+};
+
+YouTubeFactChecker.prototype.clearVideoPlaybackTimer = function() {
+    if (this.videoPlaybackTimer) {
+        clearInterval(this.videoPlaybackTimer);
+        this.videoPlaybackTimer = null;
+    }
+    this.autoCloseTargetTime = null;
+    this.autoCloseClaimTimestamp = null;
 };
 
 YouTubeFactChecker.prototype.clearAutoCloseTimer = function() {
@@ -222,6 +235,8 @@ YouTubeFactChecker.prototype.clearAutoCloseTimer = function() {
         clearTimeout(this.autoCloseTimer);
         this.autoCloseTimer = null;
     }
+    // Also clear the video playback timer
+    this.clearVideoPlaybackTimer();
 };
 
 console.log('✅ Content updates module loaded');
