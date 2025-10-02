@@ -73,7 +73,8 @@ YouTubeFactChecker.prototype.loadData = function(data) {
             timestamp: claimResponse.claim.start,
             endTimestamp: claimResponse.claim.start + 10, // Default 10-second duration
             claim: claimResponse.claim.claim,
-            categoryOfLikeness: this.mapApiStatusToCategory(claimResponse.status),
+            speaker: claimResponse.claim.speaker || 'Unknown',
+            status: claimResponse.status, // Use actual API status instead of mapping
             sources: claimResponse.evidence ? claimResponse.evidence.map(ev => ev.source_url).filter(Boolean) : [],
             evidence: claimResponse.evidence || [], // Preserve full evidence data for clickable links
             judgement: {
@@ -107,18 +108,34 @@ YouTubeFactChecker.prototype.loadData = function(data) {
     this.updateVisibleClaims();
 };
 
-// Map API response status to existing category system
-YouTubeFactChecker.prototype.mapApiStatusToCategory = function(status) {
-    const statusMapping = {
+// Get color scheme for status pill
+YouTubeFactChecker.prototype.getStatusColor = function(status) {
+    const statusLower = (status || '').toLowerCase();
+    const colorMap = {
+        'verified': { bg: 'rgba(52, 211, 153, 0.2)', border: 'rgba(52, 211, 153, 0.5)', text: '#34D399', icon: '✓' },
+        'true': { bg: 'rgba(52, 211, 153, 0.2)', border: 'rgba(52, 211, 153, 0.5)', text: '#34D399', icon: '✓' },
+        'false': { bg: 'rgba(248, 113, 113, 0.2)', border: 'rgba(248, 113, 113, 0.5)', text: '#F87171', icon: '✕' },
+        'disputed': { bg: 'rgba(251, 191, 36, 0.2)', border: 'rgba(251, 191, 36, 0.5)', text: '#FBBF24', icon: '⚠' },
+        'inconclusive': { bg: 'rgba(156, 163, 175, 0.2)', border: 'rgba(156, 163, 175, 0.5)', text: '#9CA3AF', icon: '?' },
+        'neutral': { bg: 'rgba(156, 163, 175, 0.2)', border: 'rgba(156, 163, 175, 0.5)', text: '#9CA3AF', icon: '−' },
+        'pending': { bg: 'rgba(96, 165, 250, 0.2)', border: 'rgba(96, 165, 250, 0.5)', text: '#60A5FA', icon: '⋯' }
+    };
+    return colorMap[statusLower] || colorMap['neutral'];
+};
+
+// Map status to simplified timeline category (true/false/neutral) for timeline markers
+YouTubeFactChecker.prototype.mapStatusToTimelineCategory = function(status) {
+    const statusLower = (status || '').toLowerCase();
+    const categoryMap = {
         'verified': 'true',
         'true': 'true',
         'false': 'false',
-        'disputed': 'false',
+        'disputed': 'neutral',
         'inconclusive': 'neutral',
-        'neutral': 'neutral'
+        'neutral': 'neutral',
+        'pending': 'neutral'
     };
-
-    return statusMapping[status.toLowerCase()] || 'neutral';
+    return categoryMap[statusLower] || 'neutral';
 };
 
 // Create summary statistics from processed claims
@@ -126,11 +143,11 @@ YouTubeFactChecker.prototype.createSummaryFromClaims = function() {
     const summary = { verified: 0, false: 0, disputed: 0, inconclusive: 0 };
 
     this.mockFactChecks.forEach(claim => {
-        const category = claim.categoryOfLikeness;
-        if (category === 'true') summary.verified++;
-        else if (category === 'false') summary.false++;
-        else if (category === 'neutral') summary.inconclusive++;
-        // Note: 'disputed' would map to 'false' category in our system
+        const status = (claim.status || '').toLowerCase();
+        if (status === 'verified' || status === 'true') summary.verified++;
+        else if (status === 'false') summary.false++;
+        else if (status === 'disputed') summary.disputed++;
+        else if (status === 'inconclusive' || status === 'neutral') summary.inconclusive++;
     });
 
     console.log('📊 Created summary from claims:', summary);
@@ -159,7 +176,8 @@ YouTubeFactChecker.prototype.handleNewClaim = function(claimData) {
         timestamp: claimData.claim.start,
         endTimestamp: claimData.claim.start + 10,
         claim: claimData.claim.claim,
-        categoryOfLikeness: this.mapApiStatusToCategory(claimData.status),
+        speaker: claimData.claim.speaker || 'Unknown',
+        status: claimData.status, // Use actual API status
         sources: claimData.evidence ? claimData.evidence.map(ev => ev.source_url).filter(Boolean) : [],
         evidence: claimData.evidence || [],
         judgement: {
@@ -190,7 +208,7 @@ YouTubeFactChecker.prototype.handleClaimUpdate = function(updateData) {
     const claimIndex = this.mockFactChecks.findIndex(c => c.id === updateData.id);
     if (claimIndex !== -1) {
         // Update the claim
-        this.mockFactChecks[claimIndex].categoryOfLikeness = this.mapApiStatusToCategory(updateData.status);
+        this.mockFactChecks[claimIndex].status = updateData.status; // Use actual API status
         this.mockFactChecks[claimIndex].judgement = {
             reasoning: updateData.written_summary || 'Fact-check completed',
             summary: updateData.written_summary || `Status: ${updateData.status}`

@@ -139,9 +139,13 @@ YouTubeFactChecker.prototype.addMorphStyles = function() {
       opacity: 0; transform: translateY(8px); 
       transition: opacity 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94); 
       color: white; width: 100%; will-change: opacity, transform; position: relative; z-index: 2; 
-      pointer-events: auto; box-sizing: border-box; 
+      pointer-events: none; box-sizing: border-box; 
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
       text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
+    }
+    .fact-checker-content button,
+    .fact-checker-content a { 
+      pointer-events: auto; 
     }
     .fact-checker-fab.morphed .fact-checker-content { opacity: 1; transform: translateY(0); }
     .video-background-blur { transition: all 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94); transition-delay: 50ms; }
@@ -279,9 +283,10 @@ YouTubeFactChecker.prototype.setupMorphInteractions = function() {
 
     // Click handler - starts analysis or allows content interaction
     this.activeIndicator.addEventListener('click', (event) => {
-        console.log('🖱️ FAB/Button clicked');
+        console.log('🖱️ FAB/Button clicked', event.target);
 
         // If already morphed (expanded), only allow content interaction, don't close
+        // Check if click is on a button or interactive element
         if (this.isMorphed) {
             console.log('📋 Expanded card clicked - allowing content interaction');
             // Don't close the card, let users interact with content (buttons, links, etc.)
@@ -344,7 +349,7 @@ YouTubeFactChecker.prototype.morphToCard = function(factCheckData = null, isAuto
         console.warn('No fact-check data available, using fallback');
         contentData = {
             claim: 'No claims found in this video',
-            categoryOfLikeness: 'neutral',
+            status: 'neutral',
             judgement: { summary: 'This video has been analyzed but no fact-checkable claims were detected.' },
             timestamp: 0,
             sources: []
@@ -434,44 +439,79 @@ YouTubeFactChecker.prototype.createGlassFilter = function() {
 };
 
 YouTubeFactChecker.prototype.injectCardContent = function(factCheckData, keepHidden = false) {
-    this.clearCardContent();
-    this.ensureCardGlassLayers();
+        this.clearCardContent();
+        this.ensureCardGlassLayers();
 
-    // Store current claim data for reference
-    this.currentCardClaim = factCheckData;
+        // Store current claim data for reference
+        this.currentCardClaim = factCheckData;
 
-    const content = document.createElement('div');
-    content.className = 'fact-checker-content';
-    content.style.cssText = `
+        const content = document.createElement('div');
+        content.className = 'fact-checker-content';
+        content.style.cssText = `
         opacity: ${keepHidden ? '0' : '1'};
         transform: translateY(${keepHidden ? '8px' : '0'});
         transition: opacity 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 160ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
-        color: white; width: 100%; position: relative; z-index: 4; pointer-events: auto; box-sizing: border-box;
+        color: white; width: 100%; position: relative; z-index: 4; pointer-events: none; box-sizing: border-box;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
     `;
 
-    // Debug logging
-    console.log('Creating morph card for fact check:', factCheckData);
-    console.log('Sources data in morph:', factCheckData.sources);
+        // Debug logging
+        console.log('Creating morph card for fact check:', factCheckData);
+        console.log('Sources data in morph:', factCheckData.sources);
 
+        // Get status styling
+        const statusStyle = this.getStatusColor(factCheckData.status);
 
-    // Create sources preview with clickable links
-    const sourcesPreview = this._createSourcesSection(factCheckData);
-
-    content.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.9; white-space: nowrap; overflow: hidden;">
-            <span style="font-size: 14px; flex-shrink: 0;">${this.getCategoryIcon(factCheckData.categoryOfLikeness)}</span>
-            <span style="flex-shrink: 0; color: ${this.getCategoryColor(factCheckData.categoryOfLikeness)};">${factCheckData.categoryOfLikeness}</span>
+        // Create sources preview with clickable links
+        const sourcesPreview = this._createSourcesSection(factCheckData);
+        content.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px;">
+            <div style="
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 4px 10px;
+                border-radius: 20px;
+                background: ${statusStyle.bg};
+                border: 1px solid ${statusStyle.border};
+                font-size: 12px;
+                font-weight: 600;
+                text-transform: capitalize;
+                letter-spacing: 0.3px;
+                color: ${statusStyle.text};
+                white-space: nowrap;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            ">
+                <span>${statusStyle.icon}</span>
+                <span>${factCheckData.status || 'Unknown'}</span>
+            </div>
+            ${factCheckData.speaker && factCheckData.speaker !== 'Unknown' ? `
+                <div style="
+                    display: inline-flex;
+                    align-items: center;
+                    padding: 4px 10px;
+                    border-radius: 20px;
+                    background: rgba(156, 163, 175, 0.2);
+                    border: 1px solid rgba(156, 163, 175, 0.5);
+                    font-size: 11px;
+                    font-weight: 500;
+                    color: rgba(255,255,255,0.9);
+                    white-space: nowrap;
+                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                ">
+                    ${factCheckData.speaker}
+                </div>
+            ` : ''}
         </div>
         <div style="font-size: 14px; line-height: 1.4; font-weight: 500; margin-bottom: 8px; word-wrap: break-word; overflow-wrap: break-word; hyphens: auto;">"${factCheckData.claim.substring(0, 180)}${factCheckData.claim.length > 180 ? '...' : ''}"</div>
         <div style="font-size: 12px; opacity: 0.85; line-height: 1.4; word-wrap: break-word; overflow-wrap: break-word; margin-bottom: 8px;">
             <div id="analysis-text-${factCheckData.timestamp || Date.now()}" style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; transition: all 0.3s ease;">
                 ${factCheckData.judgement.reasoning || factCheckData.judgement.summary || 'No detailed explanation available'}
             </div>
-            <button id="expand-btn-${factCheckData.timestamp || Date.now()}" onclick="window.factChecker.toggleAnalysis('${factCheckData.timestamp || Date.now()}')"
+            <button id="expand-btn-${factCheckData.timestamp || Date.now()}" class="expand-analysis-btn" data-identifier="${factCheckData.timestamp || Date.now()}"
                     style="background: none; border: none; color: rgba(255,255,255,0.7); font-size: 10px; cursor: pointer;
-                           margin-top: 4px; padding: 0; text-decoration: underline; transition: color 0.2s ease;"
+                           margin-top: 4px; padding: 0; text-decoration: underline; transition: color 0.2s ease; pointer-events: auto;"
                     onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">
                 Show more
             </button>
@@ -479,7 +519,7 @@ YouTubeFactChecker.prototype.injectCardContent = function(factCheckData, keepHid
         ${sourcesPreview}
 
         <!-- Minimize button in bottom right corner -->
-        <button id="minimize-btn-${factCheckData.timestamp || Date.now()}" onclick="window.factChecker.minimizeCard()"
+        <button id="minimize-btn-${factCheckData.timestamp || Date.now()}" class="minimize-card-btn"
                 style="
                     position: absolute;
                     bottom: 0px;
@@ -497,6 +537,7 @@ YouTubeFactChecker.prototype.injectCardContent = function(factCheckData, keepHid
                     justify-content: center;
                     transition: all 0.2s ease;
                     z-index: 10;
+                    pointer-events: auto;
                 "
                 onmouseover="this.style.background='rgba(255,255,255,0.3)'; this.style.transform='scale(1.1)'"
                 onmouseout="this.style.background='rgba(255,255,255,0.2)'; this.style.transform='scale(1)'"
@@ -506,6 +547,29 @@ YouTubeFactChecker.prototype.injectCardContent = function(factCheckData, keepHid
     `;
 
     this.activeIndicator.appendChild(content);
+
+    // Add event listener for minimize button
+    const minimizeBtn = content.querySelector('.minimize-card-btn');
+    if (minimizeBtn) {
+        minimizeBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🔽 Minimize button clicked');
+            this.minimizeCard();
+        });
+    }
+
+    // Add event listener for expand button
+    const expandBtn = content.querySelector('.expand-analysis-btn');
+    if (expandBtn) {
+        const identifier = expandBtn.getAttribute('data-identifier');
+        expandBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('📖 Expand button clicked');
+            this.toggleAnalysis(identifier);
+        });
+    }
 
     // Make the fact checker available globally for navigation and minimize functionality
     window.factChecker = this;
@@ -604,11 +668,24 @@ YouTubeFactChecker.prototype._createSourcesSection = function(factCheckData) {
 
         if (factCheckData.evidence && factCheckData.evidence.length > 0) {
             // New format: evidence array with objects containing source_url, source_title, snippet
-            sourcesData = factCheckData.evidence.map(evidence => ({
-                url: evidence.source_url,
-                title: evidence.source_title || 'Source',
-                snippet: evidence.snippet
-            }));
+            sourcesData = factCheckData.evidence.map(evidence => {
+                let title = evidence.source_title;
+                if (!title && evidence.source_url) {
+                    // Extract domain from URL if no title provided
+                    try {
+                        title = new URL(evidence.source_url).hostname.replace('www.', '');
+                    } catch {
+                        title = evidence.source_url.includes('//') 
+                            ? evidence.source_url.split('//')[1].split('/')[0] 
+                            : evidence.source_url.substring(0, 20);
+                    }
+                }
+                return {
+                    url: evidence.source_url,
+                    title: title || 'Source',
+                    snippet: evidence.snippet
+                };
+            });
         } else if (factCheckData.sources && factCheckData.sources.length > 0) {
             // Legacy format: sources array with URL strings
             sourcesData = factCheckData.sources.map(source => {

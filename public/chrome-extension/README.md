@@ -70,9 +70,20 @@ The backend should be accessible at `http://localhost:3000`
 
 ### Visual Indicators
 
-- **🟢 Green markers**: Verified claims (supported by reliable sources)
-- **🔴 Red markers**: False claims (contradicted by evidence)
-- **🟡 Yellow markers**: Disputed or inconclusive claims
+The extension now displays real API status values with beautiful pill-shaped badges:
+
+- **✓ Verified/True** (Green): Claims supported by reliable sources
+- **✕ False** (Red): Claims contradicted by evidence  
+- **⚠ Disputed** (Yellow): Claims with conflicting evidence
+- **? Inconclusive** (Gray): Claims without sufficient evidence
+- **− Neutral** (Gray): Neutral or subjective statements
+- **⋯ Pending** (Blue): Claims still being fact-checked
+
+Each status appears in a modern, pill-shaped badge with:
+- Adaptive background and border colors
+- Status-specific icons
+- Glassmorphic design with backdrop blur
+- Smooth animations and transitions
 
 ### Cached Results
 
@@ -269,4 +280,6 @@ For issues or questions:
 ---
 
 **Note**: This extension requires YouTube videos to have captions/subtitles enabled. Most popular videos have auto-generated captions that work perfectly with the extension.
+
+
 

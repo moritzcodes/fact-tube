@@ -101,32 +101,67 @@ YouTubeFactChecker.prototype._performClaimUpdate = function() {
         return Math.abs(this.currentTime - startTime) <= 0.5 && this.currentTime >= startTime;
     });
 
-    // Find if we're still within an active claim's duration (for display purposes)
-    const activeClaim = this.mockFactChecks.find((factCheck) => {
+    // Find ALL active claims, then pick the MOST RECENT one (prioritize newer claims!)
+    const activeClaims = this.mockFactChecks.filter((factCheck) => {
         const startTime = this._getClaimStartTime(factCheck);
         const endTime = factCheck.endTimestamp || startTime + 8; // Shorter default duration
         return this.currentTime >= startTime && this.currentTime <= endTime;
     });
 
-    // Only morph to card when we encounter a new claim start time
-    if (currentClaim && !this.isMorphed && !this.isMorphing && !this.userInteracted) {
-        console.log('🎯 Triggering morph for claim at', this._getClaimStartTime(currentClaim) + 's');
-        this.morphToCard(currentClaim, true); // true indicates auto-open
-        this.currentDisplayedClaim = currentClaim;
-        this.scheduleAutoClose(currentClaim);
+    // IMPORTANT: Pick the claim with the LATEST start time (most recent claim)
+    const activeClaim = activeClaims.length > 0 ?
+        activeClaims.reduce((latest, current) => {
+            const latestStart = this._getClaimStartTime(latest);
+            const currentStart = this._getClaimStartTime(current);
+            return currentStart > latestStart ? current : latest;
+        }) :
+        null;
+
+    // Debug logging
+    if (activeClaims.length > 1) {
+        console.log('⚠️ Multiple active claims:', activeClaims.map(c => `${this._getClaimStartTime(c)}s`).join(', '),
+            '→ Selected most recent:', activeClaim ? this._getClaimStartTime(activeClaim) + 's' : 'none');
     }
-    // Close when no active claims and user hasn't interacted
+
+    // PRIORITY 1: New claim starting NOW (even if already morphed) - prioritize new claims!
+    if (currentClaim && !this.userInteracted) {
+        if (!this.isMorphed && !this.isMorphing) {
+            // Not morphed yet, morph to show new claim
+            console.log('🎯 PRIORITY 1: Triggering morph for NEW claim at', this._getClaimStartTime(currentClaim) + 's');
+            this.morphToCard(currentClaim, true); // true indicates auto-open
+            this.currentDisplayedClaim = currentClaim;
+            this.scheduleAutoClose(currentClaim);
+        } else if (this.isMorphed && this.currentDisplayedClaim &&
+            this._getClaimStartTime(this.currentDisplayedClaim) !== this._getClaimStartTime(currentClaim)) {
+            // Already morphed, but a NEW claim is starting - prioritize it!
+            console.log('⚡ PRIORITY 1: NEW claim starting! Immediately switching from', this._getClaimStartTime(this.currentDisplayedClaim) + 's', 'to', this._getClaimStartTime(currentClaim) + 's');
+            this.injectCardContent(currentClaim, false);
+            this.showCardContent();
+            this.currentDisplayedClaim = currentClaim;
+            this.scheduleAutoClose(currentClaim);
+        }
+    }
+    // PRIORITY 2: Close when no active claims and user hasn't interacted
     else if (!activeClaim && this.isMorphed && !this.userInteracted) {
-        console.log('⏹️ Auto-closing - no active claims');
+        console.log('⏹️ PRIORITY 2: Auto-closing - no active claims');
         this.morphToFab();
         this.currentDisplayedClaim = null;
         this.clearAutoCloseTimer();
     }
-    // Update content if we're morphed and have a different active claim
+    // PRIORITY 3: Update content if we're morphed and have a different active claim (but no new claim starting)
     else if (activeClaim && this.isMorphed && this.currentDisplayedClaim &&
         this._getClaimStartTime(this.currentDisplayedClaim) !== this._getClaimStartTime(activeClaim)) {
-        console.log('🔄 Updating displayed claim content');
-        this.injectCardContent(activeClaim);
+        console.log('🔄 PRIORITY 3: Updating to different active claim from', this._getClaimStartTime(this.currentDisplayedClaim) + 's', 'to', this._getClaimStartTime(activeClaim) + 's');
+        console.log('   Current displayed:', this.currentDisplayedClaim.claim.substring(0, 50));
+        console.log('   Switching to:', activeClaim.claim.substring(0, 50));
+        this.injectCardContent(activeClaim, false); // false = don't keep hidden
+        this.showCardContent(); // Ensure content is shown with proper transition
+        this.currentDisplayedClaim = activeClaim;
+        this.scheduleAutoClose(activeClaim);
+    }
+    // PRIORITY 4: If we're morphed but currentDisplayedClaim is null, set it
+    else if (activeClaim && this.isMorphed && !this.currentDisplayedClaim) {
+        console.log('🔄 PRIORITY 4: Setting currentDisplayedClaim for already morphed card');
         this.currentDisplayedClaim = activeClaim;
         this.scheduleAutoClose(activeClaim);
     }
@@ -150,9 +185,11 @@ YouTubeFactChecker.prototype._updateFabVisualState = function(claim) {
 };
 
 YouTubeFactChecker.prototype._getClaimBackgroundColor = function(claim) {
-    if (claim.categoryOfLikeness === 'false') {
+    // Use the status field instead of categoryOfLikeness
+    const status = (claim.status || '').toLowerCase();
+    if (status === 'false') {
         return 'rgba(0, 0, 0, 0.2)';
-    } else if (claim.categoryOfLikeness === 'neutral') {
+    } else if (status === 'neutral' || status === 'inconclusive') {
         return 'rgba(0, 0, 0, 0.2)';
     } else {
         return 'rgba(0, 0, 0, 0.2)';

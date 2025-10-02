@@ -142,7 +142,7 @@ YouTubeFactChecker.prototype.handleAnalysisComplete = function(result) {
             timestamp: claimResponse.claim.start,
             endTimestamp: claimResponse.claim.start + 10, // Default 10-second duration
             claim: claimResponse.claim.claim,
-            categoryOfLikeness: this.mapApiStatusToCategory(claimResponse.status),
+            status: claimResponse.status, // Use actual API status instead of mapping
             sources: claimResponse.evidence ? claimResponse.evidence.map(ev => ev.source_url).filter(Boolean) : [],
             evidence: claimResponse.evidence || [], // Preserve full evidence data for clickable links
             judgement: {
@@ -182,35 +182,21 @@ YouTubeFactChecker.prototype.handleAnalysisError = function(error) {
 };
 
 
-YouTubeFactChecker.prototype.mapApiStatusToCategory = function(status) {
-    // Map API response status to existing category system
-    const statusMapping = {
-        'verified': 'true',
-        'true': 'true',
-        'false': 'false',
-        'disputed': 'false',
-        'inconclusive': 'neutral',
-        'neutral': 'neutral'
-    };
-
-    return statusMapping[status.toLowerCase()] || 'neutral';
-};
-
 YouTubeFactChecker.prototype.createSummaryFromClaims = function() {
     const summary = { verified: 0, false: 0, disputed: 0, inconclusive: 0 };
 
     this.mockFactChecks.forEach(claim => {
-        const category = claim.categoryOfLikeness;
-        if (category === 'true') summary.verified++;
-        else if (category === 'false') summary.false++;
-        else if (category === 'neutral') summary.inconclusive++;
-        // Note: 'disputed' would map to 'false' category in our system
+        const status = (claim.status || '').toLowerCase();
+        if (status === 'verified' || status === 'true') summary.verified++;
+        else if (status === 'false') summary.false++;
+        else if (status === 'disputed') summary.disputed++;
+        else if (status === 'inconclusive' || status === 'neutral') summary.inconclusive++;
     });
 
     console.log('📊 Created summary from claims:', summary);
     console.log('📊 Claims data:', this.mockFactChecks.map(c => ({
         claim: c.claim,
-        category: c.categoryOfLikeness
+        status: c.status
     })));
 
     return summary;
@@ -293,9 +279,11 @@ YouTubeFactChecker.prototype.createTimelineMarkers = function() {
 
         const tint = document.createElement('div');
         tint.className = 'liquidGlass-tint';
+        // Map status to simplified category for timeline colors
+        const timelineCategory = this.mapStatusToTimelineCategory(factCheck.status);
         tint.style.cssText = `
       z-index: 1; position: absolute; inset: 0; border-radius: inherit; 
-      background: ${this.getCategoryColor(factCheck.categoryOfLikeness)}70;
+      background: ${this.getCategoryColor(timelineCategory)}70;
       pointer-events: none;
     `;
 
@@ -315,6 +303,9 @@ YouTubeFactChecker.prototype.createTimelineMarkers = function() {
         marker.addEventListener('mouseenter', () => {
             console.log('Marker hover enter - showing tooltip');
 
+            // Map status to simplified category for timeline colors
+            const timelineCategory = this.mapStatusToTimelineCategory(factCheck.status);
+
             // Immediate visual feedback
             marker.style.opacity = '1';
             marker.style.width = '20px';
@@ -323,7 +314,7 @@ YouTubeFactChecker.prototype.createTimelineMarkers = function() {
             marker.style.transform = 'translateX(-50%) scale(1.15)';
             marker.style.boxShadow = `0 0 0 2px rgba(255, 255, 255, 0.6), 
                                      0 8px 24px rgba(10, 132, 255, 0.4),
-                                     0 0 20px ${this.getCategoryColor(factCheck.categoryOfLikeness)}60`;
+                                     0 0 20px ${this.getCategoryColor(timelineCategory)}60`;
             marker.style.zIndex = '1001';
 
             // Show tooltip immediately
@@ -451,12 +442,14 @@ YouTubeFactChecker.prototype.showTimelineTooltip = function(marker, factCheck) {
 
     // Enhanced content with better formatting
     const endTime = factCheck.endTimestamp || (factCheck.timestamp + 10);
-    const categoryIcon = this.getCategoryIcon(factCheck.categoryOfLikeness);
-    const categoryColor = this.getCategoryColor(factCheck.categoryOfLikeness);
+    // Map status to simplified category for timeline tooltip
+    const timelineCategory = this.mapStatusToTimelineCategory(factCheck.status);
+    const categoryIcon = this.getCategoryIcon(timelineCategory);
+    const categoryColor = this.getCategoryColor(timelineCategory);
 
     contentContainer.innerHTML = `
         <span style="font-size: 14px; color: ${categoryColor};">${categoryIcon}</span>
-        <span style="text-transform: uppercase; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; color: ${categoryColor};">${factCheck.categoryOfLikeness}</span>
+        <span style="text-transform: uppercase; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; color: ${categoryColor};">${timelineCategory}</span>
         <span style="color: rgba(255, 255, 255, 0.6); font-size: 11px;">•</span>
         <span style="font-size: 11px; color: rgba(255, 255, 255, 0.9); font-weight: 400;">${this.formatTime(factCheck.timestamp)}</span>
     `;
