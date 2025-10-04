@@ -19,6 +19,7 @@ export const claims = pgTable("claims", {
   status: claimStatusEnum("status").default('pending').notNull(),
   verdict: text("verdict"),
   sources: text("sources"), // JSON string of sources
+  sourceBias: text("source_bias"), // JSON string of sources with bias information
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

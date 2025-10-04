@@ -683,7 +683,8 @@ YouTubeFactChecker.prototype._createSourcesSection = function(factCheckData) {
                 return {
                     url: evidence.source_url,
                     title: title || 'Source',
-                    snippet: evidence.snippet
+                    snippet: evidence.snippet,
+                    bias: evidence.bias || 'center'
                 };
             });
         } else if (factCheckData.sources && factCheckData.sources.length > 0) {
@@ -694,51 +695,101 @@ YouTubeFactChecker.prototype._createSourcesSection = function(factCheckData) {
                     return {
                         url: source,
                         title: domain,
-                        snippet: null
+                        snippet: null,
+                        bias: 'center'
                     };
                 } catch {
                     const fallbackDomain = source.includes('//') ? source.split('//')[1].split('/')[0] : source.substring(0, 20);
                     return {
                         url: source,
                         title: fallbackDomain,
-                        snippet: null
+                        snippet: null,
+                        bias: 'center'
                     };
                 }
             });
+        }
+
+        // If sourceBias data is available, use it
+        if (factCheckData.sourceBias && factCheckData.sourceBias.length > 0) {
+            sourcesData = factCheckData.sourceBias.map(source => ({
+                url: source.url,
+                title: source.domain.replace('www.', ''),
+                snippet: null,
+                bias: source.bias
+            }));
         }
 
         if (sourcesData.length === 0) {
             return '';
         }
 
+        // Calculate bias distribution
+        const biasCount = { left: 0, center: 0, right: 0 };
+        sourcesData.forEach(source => {
+            biasCount[source.bias]++;
+        });
+
+        const total = sourcesData.length;
+        const leftPercent = Math.round((biasCount.left / total) * 100);
+        const centerPercent = Math.round((biasCount.center / total) * 100);
+        const rightPercent = Math.round((biasCount.right / total) * 100);
+
         const displaySources = sourcesData.slice(0, 3); // Show up to 3 sources
-        const remainingCount = sourcesData.length - displaySources.length;
 
         return `
         <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.15);">
-            <div style="font-size: 10px; opacity: 0.7; margin-bottom: 4px;">Sources (${sourcesData.length}):</div>
+            <div style="font-size: 10px; opacity: 0.7; margin-bottom: 4px;">
+                Sources (${sourcesData.length})
+            </div>
+            
+            <!-- Bias bar visualization -->
+            ${total > 1 ? `
+            <div style="margin-bottom: 8px;">
+                <div style="display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: rgba(255,255,255,0.1);">
+                    ${leftPercent > 0 ? `<div style="width: ${leftPercent}%; background: linear-gradient(90deg, #ef4444, #dc2626); opacity: 0.85;" title="Left: ${leftPercent}%"></div>` : ''}
+                    ${centerPercent > 0 ? `<div style="width: ${centerPercent}%; background: linear-gradient(90deg, #9ca3af, #6b7280); opacity: 0.85;" title="Center: ${centerPercent}%"></div>` : ''}
+                    ${rightPercent > 0 ? `<div style="width: ${rightPercent}%; background: linear-gradient(90deg, #3b82f6, #2563eb); opacity: 0.85;" title="Right: ${rightPercent}%"></div>` : ''}
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 2px; font-size: 8px; opacity: 0.6;">
+                    <span>L ${leftPercent}%</span>
+                    <span>C ${centerPercent}%</span>
+                    <span>R ${rightPercent}%</span>
+                </div>
+            </div>
+            ` : ''}
+            
+            <!-- Source links -->
             <div style="font-size: 10px; opacity: 0.8; line-height: 1.2; display: flex; flex-wrap: wrap; gap: 4px;">
-                ${displaySources.map((source, index) => `
+                ${displaySources.map((source, index) => {
+                    const biasColor = source.bias === 'left' ? 'rgba(239, 68, 68, 0.3)' : 
+                                      source.bias === 'right' ? 'rgba(59, 130, 246, 0.3)' : 
+                                      'rgba(156, 163, 175, 0.3)';
+                    const biasBorder = source.bias === 'left' ? 'rgba(239, 68, 68, 0.5)' : 
+                                       source.bias === 'right' ? 'rgba(59, 130, 246, 0.5)' : 
+                                       'rgba(156, 163, 175, 0.5)';
+                    return `
                     <a href="${source.url}" 
                        target="_blank" 
                        rel="noopener noreferrer"
                        onclick="event.stopPropagation(); window.factChecker.markUserInteracted();"
                        style="
-                           background: rgba(255,255,255,0.15); 
+                           background: ${biasColor}; 
+                           border: 1px solid ${biasBorder};
                            padding: 2px 6px; 
                            border-radius: 3px; 
                            text-decoration: none; 
                            color: white; 
                            font-size: 10px;
                            flex-shrink: 0;
-                           transition: background 0.2s ease;
+                           transition: all 0.2s ease;
                            cursor: pointer;
                        "
                        onmouseover="this.style.background='rgba(255,255,255,0.25)';"
-                       onmouseout="this.style.background='rgba(255,255,255,0.15)';"
+                       onmouseout="this.style.background='${biasColor}';"
                        title="${source.snippet ? source.snippet : 'Click to open source'}">${source.title}</a>
-                `).join('')}
-                ${remainingCount > 0 ? `<span style="opacity: 0.6; font-size: 9px;">+${remainingCount} more</span>` : ''}
+                `;
+                }).join('')}
             </div>
         </div>
     `;

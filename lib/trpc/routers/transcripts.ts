@@ -39,7 +39,7 @@ export const transcriptsRouter = router({
   fetchFromYouTube: publicProcedure
     .input(z.object({
       videoId: z.string(),
-      lang: z.string().optional().default('en'),
+      lang: z.string().optional(), // Optional language preference, will use video's default language if not specified
     }))
     .query(async ({ input }) => {
       const videoId = extractVideoId(input.videoId);
@@ -49,12 +49,15 @@ export const transcriptsRouter = router({
       }
 
       try {
-        console.log(`Attempting to fetch transcript for video: ${videoId}, lang: ${input.lang}`);
+        console.log(`Attempting to fetch transcript for video: ${videoId}${input.lang ? `, lang: ${input.lang}` : ' (default language)'}`);
         
-        // Create Innertube instance with language preference and optional proxy
-        const innertubeOptions: any = {
-          lang: input.lang,
-        };
+        // Create Innertube instance with optional language preference and proxy
+        const innertubeOptions: any = {};
+
+        // Only set language if explicitly provided, otherwise use video's default language
+        if (input.lang) {
+          innertubeOptions.lang = input.lang;
+        }
 
         // Add proxy configuration if available via environment variables
         if (process.env.YOUTUBE_PROXY_URL) {
@@ -110,7 +113,7 @@ export const transcriptsRouter = router({
 
         return {
           videoId,
-          lang: input.lang,
+          lang: input.lang || 'default', // 'default' means video's original language
           segments,
           totalSegments: segments.length,
         };

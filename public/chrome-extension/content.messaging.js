@@ -77,6 +77,7 @@ YouTubeFactChecker.prototype.loadData = function(data) {
             status: claimResponse.status, // Use actual API status instead of mapping
             sources: claimResponse.evidence ? claimResponse.evidence.map(ev => ev.source_url).filter(Boolean) : [],
             evidence: claimResponse.evidence || [], // Preserve full evidence data for clickable links
+            sourceBias: claimResponse.sourceBias || null, // Include source bias information
             judgement: {
                 reasoning: claimResponse.written_summary || 'No detailed explanation provided',
                 summary: claimResponse.written_summary ?

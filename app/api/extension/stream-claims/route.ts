@@ -81,6 +81,7 @@ export async function GET(request: NextRequest) {
               evidence: claim.sources ? JSON.parse(claim.sources).map((url: string) => ({
                 source_url: url,
               })) : [],
+              sourceBias: claim.sourceBias ? JSON.parse(claim.sourceBias) : null,
             });
           }
 
@@ -94,6 +95,7 @@ export async function GET(request: NextRequest) {
                 evidence: claim.sources ? JSON.parse(claim.sources).map((url: string) => ({
                   source_url: url,
                 })) : [],
+                sourceBias: claim.sourceBias ? JSON.parse(claim.sourceBias) : null,
               });
             }
           }
