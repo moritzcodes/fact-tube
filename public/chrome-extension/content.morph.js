@@ -666,6 +666,14 @@ YouTubeFactChecker.prototype._createSourcesSection = function(factCheckData) {
         // Handle both 'sources' (URL strings) and 'evidence' (objects with source_url) formats
         let sourcesData = [];
 
+        // Debug logging to verify bias data is present
+        console.log('📊 Creating sources section with data:', {
+            hasEvidence: !!factCheckData.evidence,
+            hasSources: !!factCheckData.sources,
+            hasSourceBias: !!factCheckData.sourceBias,
+            sourceBiasData: factCheckData.sourceBias
+        });
+
         if (factCheckData.evidence && factCheckData.evidence.length > 0) {
             // New format: evidence array with objects containing source_url, source_title, snippet
             sourcesData = factCheckData.evidence.map(evidence => {

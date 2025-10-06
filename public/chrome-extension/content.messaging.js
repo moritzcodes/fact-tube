@@ -68,8 +68,13 @@ YouTubeFactChecker.prototype.loadData = function(data) {
     // Transform API data to match expected mockFactChecks format
     if (data.claim_responses && data.claim_responses.length > 0) {
         console.log('🔄 Transforming', data.claim_responses.length, 'claim responses...');
+
+        // Debug: Check if any responses have sourceBias data
+        const responsesWithBias = data.claim_responses.filter(cr => cr.sourceBias && cr.sourceBias.length > 0);
+        console.log('📊 Claims with bias data:', responsesWithBias.length, '/', data.claim_responses.length);
+
         // Transform API response format to match overlay format
-        this.mockFactChecks = data.claim_responses.map(claimResponse => ({
+        let transformedClaims = data.claim_responses.map(claimResponse => ({
             timestamp: claimResponse.claim.start,
             endTimestamp: claimResponse.claim.start + 10, // Default 10-second duration
             claim: claimResponse.claim.claim,
@@ -84,6 +89,12 @@ YouTubeFactChecker.prototype.loadData = function(data) {
                     claimResponse.written_summary.split('.')[0] + '.' : `Status: ${claimResponse.status}`
             }
         }));
+
+        // Filter claims that are too close together (within 30 seconds) for better UX
+        transformedClaims = this.filterClaimsByProximity(transformedClaims, 30);
+        console.log('🔍 Filtered claims by proximity: kept', transformedClaims.length, 'out of', data.claim_responses.length);
+
+        this.mockFactChecks = transformedClaims;
 
         console.log('Processed API fact-check data:', this.mockFactChecks.length, 'claims', data.fromCache ? '(from cache)' : '(fresh)');
 
@@ -181,6 +192,7 @@ YouTubeFactChecker.prototype.handleNewClaim = function(claimData) {
         status: claimData.status, // Use actual API status
         sources: claimData.evidence ? claimData.evidence.map(ev => ev.source_url).filter(Boolean) : [],
         evidence: claimData.evidence || [],
+        sourceBias: claimData.sourceBias || null, // Include source bias information
         judgement: {
             reasoning: claimData.written_summary || 'Fact-checking in progress...',
             summary: claimData.written_summary || 'Status: Pending'
@@ -217,6 +229,10 @@ YouTubeFactChecker.prototype.handleClaimUpdate = function(updateData) {
         if (updateData.evidence) {
             this.mockFactChecks[claimIndex].evidence = updateData.evidence;
             this.mockFactChecks[claimIndex].sources = updateData.evidence.map(ev => ev.source_url).filter(Boolean);
+        }
+        // Update source bias information if available
+        if (updateData.sourceBias) {
+            this.mockFactChecks[claimIndex].sourceBias = updateData.sourceBias;
         }
 
         // Update timeline markers
@@ -284,6 +300,32 @@ YouTubeFactChecker.prototype.handleExtractTranscript = async function(data, send
             sendResponse({ success: false, error: error.message, videoId: data.videoId });
         }
     }
+};
+
+/**
+ * Filter claims to ensure minimum time spacing between them
+ * This prevents timeline markers from being too crowded
+ */
+YouTubeFactChecker.prototype.filterClaimsByProximity = function(claims, minSpacing = 30) {
+    if (claims.length <= 1) return claims;
+
+    // Sort by timestamp
+    const sorted = [...claims].sort((a, b) => a.timestamp - b.timestamp);
+    const filtered = [sorted[0]]; // Always keep first claim
+
+    for (let i = 1; i < sorted.length; i++) {
+        const currentClaim = sorted[i];
+        const lastKeptClaim = filtered[filtered.length - 1];
+
+        // Keep claim if it's at least minSpacing seconds after the last kept claim
+        if (currentClaim.timestamp - lastKeptClaim.timestamp >= minSpacing) {
+            filtered.push(currentClaim);
+        } else {
+            console.log(`⏭️  Skipping claim at ${currentClaim.timestamp}s (too close to claim at ${lastKeptClaim.timestamp}s)`);
+        }
+    }
+
+    return filtered;
 };
 
 // OLD: submitTranscriptToBackend - NO LONGER NEEDED

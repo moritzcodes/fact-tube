@@ -34,7 +34,7 @@ YouTubeFactChecker.prototype.extractVideoId = function() {
         console.log('🆕 New video detected:', videoId);
 
         // Aggressively remove ALL old timeline markers before setting new video ID
-        const allMarkers = document.querySelectorAll('.fact-check-timeline-marker');
+        const allMarkers = document.querySelectorAll('.fact-check-timeline-marker, .fact-check-marker-group');
         if (allMarkers.length > 0) {
             console.log('🧹 Force-removing', allMarkers.length, 'old timeline markers');
             allMarkers.forEach(marker => marker.remove());
@@ -44,6 +44,7 @@ YouTubeFactChecker.prototype.extractVideoId = function() {
         this.claims = [];
         this.factChecks = [];
         this.mockFactChecks = []; // Clear fact-check data for new video
+        this.markerGrouping = null; // Clear grouping data for new video
         this.clearOverlays();
         this.clearTimeouts();
 

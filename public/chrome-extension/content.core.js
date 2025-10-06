@@ -24,10 +24,16 @@ class YouTubeFactChecker {
         this.videoPlaybackTimer = null; // Timer for video playback-based auto-close
         this.autoCloseTargetTime = null; // Target video time for auto-close
         this.autoCloseClaimTimestamp = null; // Claim timestamp for auto-close verification
+        this.markerGrouping = null; // Store timeline marker grouping data
     }
 
     init() {
         console.log('🎯 YouTubeFactChecker.init() called');
+
+        // Clean up old grouping data from previous sessions
+        if (typeof this.cleanupOldGroupingData === 'function') {
+            this.cleanupOldGroupingData();
+        }
 
         // Wait for YouTube player to load
         this.waitForPlayer().then(() => {

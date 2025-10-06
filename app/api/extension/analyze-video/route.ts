@@ -84,6 +84,7 @@ export async function POST(request: NextRequest) {
           status: claim.status,
           verdict: claim.verdict || '',
           sources: claim.sources ? JSON.parse(claim.sources) : [],
+          sourceBias: claim.sourceBias ? JSON.parse(claim.sourceBias) : null,
         })),
       }, { headers: corsHeaders });
     }
@@ -274,7 +275,11 @@ If no significant fact-checkable claims exist, return: {"claims": []}`,
       }
     }
 
-    console.log(`🎉 Analysis complete! Total claims: ${allClaims.length}`);
+    // Filter out claims that are too close together (within 30 seconds)
+    const filteredClaims = filterClaimsByProximity(allClaims, 30);
+    console.log(`🔍 Filtered ${allClaims.length} claims to ${filteredClaims.length} (removed claims too close together)`);
+    
+    console.log(`🎉 Analysis complete! Total claims: ${filteredClaims.length}`);
 
     return NextResponse.json({
       success: true,
@@ -282,8 +287,8 @@ If no significant fact-checkable claims exist, return: {"claims": []}`,
       videoId,
       title: videoTitle,
       channelName,
-      totalClaims: allClaims.length,
-      claims: allClaims.map(claim => ({
+      totalClaims: filteredClaims.length,
+      claims: filteredClaims.map(claim => ({
         id: claim.id,
         claim: claim.claim,
         speaker: claim.speaker,
@@ -322,5 +327,31 @@ function chunkTranscriptSegments(segments: any[], chunkDuration: number) {
   }
 
   return chunks;
+}
+
+/**
+ * Filter claims to ensure minimum time spacing between them
+ * This prevents timeline markers from being too crowded
+ */
+function filterClaimsByProximity(claims: any[], minSpacing: number = 30) {
+  if (claims.length <= 1) return claims;
+
+  // Sort by timestamp
+  const sorted = [...claims].sort((a, b) => a.timestamp - b.timestamp);
+  const filtered = [sorted[0]]; // Always keep first claim
+
+  for (let i = 1; i < sorted.length; i++) {
+    const currentClaim = sorted[i];
+    const lastKeptClaim = filtered[filtered.length - 1];
+
+    // Keep claim if it's at least minSpacing seconds after the last kept claim
+    if (currentClaim.timestamp - lastKeptClaim.timestamp >= minSpacing) {
+      filtered.push(currentClaim);
+    } else {
+      console.log(`⏭️  Skipping claim at ${currentClaim.timestamp}s (too close to claim at ${lastKeptClaim.timestamp}s)`);
+    }
+  }
+
+  return filtered;
 }
 
