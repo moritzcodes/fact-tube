@@ -28,8 +28,8 @@ YouTubeFactChecker.prototype.createActiveIndicator = function() {
         springStiffness: 420,
         springDamping: 38,
         dampingRatio: 0.86,
-        fab: { width: 56, height: 56, borderRadius: 28, shadow: '0 4px 12px rgba(10, 132, 255, 0.25)', iconScale: 1, iconOpacity: 1 },
-        card: { width: 380, height: 300, borderRadius: 16, shadow: '0 12px 40px rgba(10, 132, 255, 0.15)', iconScale: 0.8, iconOpacity: 0.9 },
+        fab: { width: 56, height: 56, borderRadius: 28, shadow: '0 4px 12px rgba(255, 255, 255, 0.25)', iconScale: 1, iconOpacity: 1 },
+        card: { width: 380, height: 300, borderRadius: 16, shadow: '0 12px 40px rgba(255, 255, 255, 0.15)', iconScale: 0.8, iconOpacity: 0.9 },
         morphStart: 0,
         backgroundBlurStart: 50,
         contentFadeStart: 120,
@@ -56,7 +56,7 @@ YouTubeFactChecker.prototype.createActiveIndicator = function() {
     width: ${this.motionTokens.fab.width}px; height: ${this.motionTokens.fab.height}px; border-radius: ${this.motionTokens.fab.borderRadius}px;
     transition: all ${this.motionTokens.duration}ms cubic-bezier(0.34, 1.56, 0.64, 1);
     will-change: width, height, border-radius, box-shadow;
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.4), 0 8px 24px rgba(10,132,255,0.3);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.4), 0 8px 24px rgba(255, 255, 255,0.3);
     align-items: center; justify-content: center;
     opacity: 0; transform: scale(0.8);
     backdrop-filter: blur(8px) saturate(1.2);
@@ -126,13 +126,13 @@ YouTubeFactChecker.prototype.addMorphStyles = function() {
     }
     .fact-checker-fab.morphed { 
       width: 380px !important; height: auto !important; max-height: 300px !important; overflow-y: auto; border-radius: 16px !important; 
-      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 0 12px 40px rgba(10, 132, 255, 0.15) !important; 
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 0 12px 40px rgba(255, 255, 255, 0.15) !important; 
       align-items: flex-start !important; justify-content: flex-start !important; padding: 16px !important; 
     }
     /* Liquid glass layers per provided spec */
     .liquidGlass-wrapper { position: relative; border-radius: inherit; }
     .liquidGlass-effect { position: absolute; z-index: 0; inset: 0; border-radius: inherit; backdrop-filter: blur(2px) saturate(1.1); filter: url(#glass-distortion); overflow: hidden; isolation: isolate; }
-    .liquidGlass-tint { z-index: 1; position: absolute; inset: 0; border-radius: inherit; background: rgba(255, 255, 255, 0.15); }
+    .liquidGlass-tint { z-index: 1; position: absolute; inset: 0; border-radius: inherit; background: rgba(0, 0, 0, 0.1); }
     .liquidGlass-shine { position: absolute; inset: 0; z-index: 2; border-radius: inherit; overflow: hidden; box-shadow: inset 2px 2px 1px 0 rgba(255, 255, 255, 0.1), inset -1px -1px 1px 1px rgba(255, 255, 255, 0.1); }
     .liquidGlass-text { z-index: 3; position: relative; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 2rem; color: black; }
     .fact-checker-content { 
@@ -187,10 +187,10 @@ YouTubeFactChecker.prototype.addMorphStyles = function() {
     }
     
     @keyframes autoOpenPulse {
-      0% { transform: scale(1); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 0 12px 40px rgba(10, 132, 255, 0.15); }
-      30% { transform: scale(1.02); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7), 0 12px 40px rgba(10, 132, 255, 0.25); }
-      60% { transform: scale(1.01); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6), 0 12px 40px rgba(10, 132, 255, 0.2); }
-      100% { transform: scale(1); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 0 12px 40px rgba(10, 132, 255, 0.15); }
+      0% { transform: scale(1); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 0 12px 40px rgba(255, 255, 255, 0.15); }
+      30% { transform: scale(1.02); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7), 0 12px 40px rgba(255, 255, 255, 0.25); }
+      60% { transform: scale(1.01); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6), 0 12px 40px rgba(255, 255, 255, 0.2); }
+      100% { transform: scale(1); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 0 12px 40px rgba(255, 255, 255, 0.15); }
     }
     
     @media (prefers-reduced-motion: reduce) { 

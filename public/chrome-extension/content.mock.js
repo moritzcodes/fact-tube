@@ -445,7 +445,7 @@ YouTubeFactChecker.prototype.createSingleMarker = function(factCheck, index, pro
       z-index: 1000;
       opacity: 0.95;
       transition: all 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
-      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4), 0 4px 12px rgba(10, 132, 255, 0.25);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4), 0 4px 12px rgba(255, 255, 255, 0.25);
       transform: translateX(-50%);
       overflow: hidden;
       pointer-events: auto;
@@ -492,7 +492,7 @@ YouTubeFactChecker.prototype.createSingleMarker = function(factCheck, index, pro
         marker.style.top = '-24px';
         marker.style.transform = 'translateX(-50%) scale(1.15)';
         marker.style.boxShadow = `0 0 0 2px rgba(255, 255, 255, 0.6), 
-                                 0 8px 24px rgba(10, 132, 255, 0.4),
+                                 0 8px 24px rgba(255, 255, 255, 0.4),
                                  0 0 20px ${this.getCategoryColor(timelineCategory)}60`;
         marker.style.zIndex = '1001';
         this.showTimelineTooltip(marker, factCheck);
@@ -504,7 +504,7 @@ YouTubeFactChecker.prototype.createSingleMarker = function(factCheck, index, pro
         marker.style.height = '14px';
         marker.style.top = '-16px';
         marker.style.transform = 'translateX(-50%) scale(1)';
-        marker.style.boxShadow = `0 0 0 1px rgba(255, 255, 255, 0.4), 0 4px 12px rgba(10, 132, 255, 0.25)`;
+        marker.style.boxShadow = `0 0 0 1px rgba(255, 255, 255, 0.4), 0 4px 12px rgba(255, 255, 255, 0.25)`;
         marker.style.zIndex = '1000';
         this.hideTimelineTooltip();
     });
@@ -542,7 +542,7 @@ YouTubeFactChecker.prototype.createGroupMarker = function(group, groupIndex, pro
       z-index: 1000;
       opacity: 0.95;
       transition: all 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
-      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 0 4px 12px rgba(10, 132, 255, 0.3);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 0 4px 12px rgba(255, 255, 255, 0.3);
       transform: translateX(-50%);
       overflow: hidden;
       pointer-events: auto;
@@ -603,7 +603,7 @@ YouTubeFactChecker.prototype.createGroupMarker = function(group, groupIndex, pro
         marker.style.top = '-24px';
         marker.style.transform = 'translateX(-50%) scale(1.15)';
         marker.style.boxShadow = `0 0 0 2px rgba(255, 255, 255, 0.7), 
-                                 0 8px 24px rgba(10, 132, 255, 0.5)`;
+                                 0 8px 24px rgba(255, 255, 255, 0.5)`;
         marker.style.zIndex = '1001';
         this.showGroupTooltip(marker, group);
     });
@@ -614,7 +614,7 @@ YouTubeFactChecker.prototype.createGroupMarker = function(group, groupIndex, pro
         marker.style.height = '18px';
         marker.style.top = '-16px';
         marker.style.transform = 'translateX(-50%) scale(1)';
-        marker.style.boxShadow = `0 0 0 1px rgba(255, 255, 255, 0.5), 0 4px 12px rgba(10, 132, 255, 0.3)`;
+        marker.style.boxShadow = `0 0 0 1px rgba(255, 255, 255, 0.5), 0 4px 12px rgba(255, 255, 255, 0.3)`;
         marker.style.zIndex = '1000';
         this.hideTimelineTooltip();
     });
