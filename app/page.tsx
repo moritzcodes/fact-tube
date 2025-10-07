@@ -12,7 +12,15 @@ export default function Home() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedChunks, setProcessedChunks] = useState(0);
   const [totalChunks, setTotalChunks] = useState(0);
-  const [extractedClaims, setExtractedClaims] = useState<any[]>([]);
+  const [extractedClaims, setExtractedClaims] = useState<Array<{
+    id: string;
+    claim: string;
+    speaker?: string | null;
+    timestamp: number;
+    status: string;
+    verdict?: string | null;
+    sources?: Array<{ url: string; title?: string }> | string | null;
+  }>>([]);
   const [showRecentVideos, setShowRecentVideos] = useState(true);
 
   // Fetch transcript from YouTube
@@ -23,7 +31,7 @@ export default function Home() {
     );
 
   // Fetch video metadata (including description)
-  const { data: videoMetadata, isLoading: metadataLoading } = 
+  const { data: videoMetadata } =
     trpc.transcripts.getVideoMetadata.useQuery(
       { videoId: fetchedVideoId! },
       { enabled: !!fetchedVideoId }
@@ -111,7 +119,7 @@ export default function Home() {
     };
 
     saveToDatabase();
-  }, [transcript, videoMetadata, fetchedVideoId]);
+  }, [transcript, videoMetadata, fetchedVideoId, saveVideoMutation, saveTranscriptMutation, refetchRecentVideos]);
 
   // Process transcript segments asynchronously
   const handleProcessSegments = async () => {
@@ -143,7 +151,15 @@ export default function Home() {
       }
 
       // Process each chunk asynchronously
-      const allClaims: any[] = [];
+      const allClaims: Array<{
+        id: string;
+        claim: string;
+        speaker?: string | null;
+        timestamp: number;
+        status: string;
+        verdict?: string | null;
+        sources?: Array<{ url: string; title?: string }> | string | null;
+      }> = [];
       for (let i = 0; i < chunks.length; i++) {
         try {
           const result = await extractClaimsMutation.mutateAsync({
@@ -327,7 +343,7 @@ export default function Home() {
                   <h3 className="font-semibold">Transcript Segments (from database)</h3>
                 </div>
                 <div className="max-h-96 overflow-y-auto">
-                  {dbTranscriptSegments.map((segment, index) => (
+                  {dbTranscriptSegments.map((segment) => (
                     <div
                       key={segment.id}
                       className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
@@ -368,7 +384,7 @@ export default function Home() {
                   <h3 className="font-semibold">Transcript Segments</h3>
                 </div>
                 <div className="max-h-96 overflow-y-auto">
-                  {transcript.segments.map((segment: any, index: number) => (
+                  {transcript.segments.map((segment: { start: number; text: string }, index: number) => (
                     <div
                       key={index}
                       className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
@@ -468,9 +484,17 @@ export default function Home() {
             </div>
             
             <div className="space-y-3">
-              {(isProcessing ? extractedClaims : (videoClaims || extractedClaims)).map((claim: any, index: number) => {
+              {(isProcessing ? extractedClaims : (videoClaims || extractedClaims)).map((claim: {
+                id: string;
+                claim: string;
+                speaker?: string | null;
+                timestamp: number;
+                status: string;
+                verdict?: string | null;
+                sources?: Array<{ url: string; title?: string }> | string | null;
+              }) => {
                 // Parse sources if they exist
-                let parsedSources: any[] = [];
+                let parsedSources: Array<{ url?: string; title?: string }> = [];
                 try {
                   if (claim.sources && typeof claim.sources === 'string') {
                     parsedSources = JSON.parse(claim.sources);
@@ -482,8 +506,8 @@ export default function Home() {
                 }
 
                 return (
-                  <div 
-                    key={claim.id || index}
+                  <div
+                    key={claim.id}
                     className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                   >
                     <div className="flex gap-4">
@@ -534,10 +558,10 @@ export default function Home() {
                               Sources:
                             </p>
                             <div className="space-y-2">
-                              {parsedSources.slice(0, 2).map((source: any, idx: number) => (
+                              {parsedSources.slice(0, 2).map((source: { url?: string; title?: string } | string, idx: number) => (
                                 <a
                                   key={idx}
-                                  href={source.url || source}
+                                  href={typeof source === 'string' ? source : source.url}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="block text-xs p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
@@ -545,13 +569,13 @@ export default function Home() {
                                   <div className="flex items-start gap-2">
                                     <span className="text-blue-600 dark:text-blue-400">🔗</span>
                                     <div className="flex-1 min-w-0">
-                                      {source.title && (
+                                      {typeof source === 'object' && source.title && (
                                         <p className="font-medium text-blue-700 dark:text-blue-300 truncate">
                                           {source.title}
                                         </p>
                                       )}
                                       <p className="text-blue-600 dark:text-blue-400 truncate">
-                                        {source.url || source}
+                                        {typeof source === 'string' ? source : (source.url || '')}
                                       </p>
                                     </div>
                                   </div>

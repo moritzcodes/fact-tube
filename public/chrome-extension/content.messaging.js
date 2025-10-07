@@ -328,16 +328,33 @@ YouTubeFactChecker.prototype.handleClaimUpdate = function(updateData) {
 // Handle transcript extraction request from background script
 YouTubeFactChecker.prototype.handleExtractTranscript = async function(data, sendResponse) {
     console.log('📝 Starting video analysis for:', data.videoId);
-    const API_BASE_URL = 'http://localhost:3000';
+
     try {
+        // Get settings from Chrome storage
+        const settings = await new Promise((resolve) => {
+            chrome.storage.local.get(['openrouterApiKey', 'apiBaseUrl'], (result) => {
+                resolve({
+                    apiKey: result.openrouterApiKey || '',
+                    apiBaseUrl: result.apiBaseUrl || 'http://localhost:3000'
+                });
+            });
+        });
+
         // Send video ID to backend - it handles everything server-side
         console.log('📤 Sending video ID to backend for analysis...');
 
-        const response = await fetch(`${API_BASE_URL}/api/extension/analyze-video`, {
+        const headers = {
+            'Content-Type': 'application/json',
+        };
+
+        // Add API key if available
+        if (settings.apiKey) {
+            headers['X-OpenRouter-API-Key'] = settings.apiKey;
+        }
+
+        const response = await fetch(`${settings.apiBaseUrl}/api/extension/analyze-video`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: headers,
             body: JSON.stringify({
                 videoId: data.videoId,
             }),

@@ -1,17 +1,23 @@
 // Background script for YouTube Fact-Checker extension
 
-// API Base URL Configuration
-// For development: Use localhost:3000
-// For production: Update this to your deployed Vercel URL
-const IS_PRODUCTION = false; // Set to true when deploying to production
-
-const API_BASE_URL = IS_PRODUCTION ?
-    'https://your-app.vercel.app' // Update this with your production URL
-    :
-    'http://localhost:3000';
-
 console.log('🚀 YouTube Fact-Checker initialized');
-console.log('📡 API Base URL:', API_BASE_URL);
+
+// Get settings from Chrome storage
+async function getSettings() {
+    try {
+        const result = await chrome.storage.local.get(['openrouterApiKey', 'apiBaseUrl']);
+        return {
+            apiKey: result.openrouterApiKey || '',
+            apiBaseUrl: result.apiBaseUrl || 'http://localhost:3000'
+        };
+    } catch (error) {
+        console.error('❌ Error loading settings:', error);
+        return {
+            apiKey: '',
+            apiBaseUrl: 'http://localhost:3000'
+        };
+    }
+}
 
 // Track active fact-checking sessions
 const activeSessions = new Map();
@@ -26,10 +32,18 @@ const activeSSEConnections = new Map();
 async function loadCachedVideo(videoId) {
     try {
         console.log(`🗄️ Loading cached data for video: ${videoId}`);
+        const settings = await getSettings();
         const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-        const response = await fetch(`${API_BASE_URL}/api/extension/process-video?video_url=${encodeURIComponent(videoUrl)}`, {
+        const headers = { 'Accept': 'application/json' };
+
+        // Add API key if available
+        if (settings.apiKey) {
+            headers['X-OpenRouter-API-Key'] = settings.apiKey;
+        }
+
+        const response = await fetch(`${settings.apiBaseUrl}/api/extension/process-video?video_url=${encodeURIComponent(videoUrl)}`, {
             method: 'GET',
-            headers: { 'Accept': 'application/json' }
+            headers: headers
         });
 
         if (!response.ok) {
@@ -62,10 +76,18 @@ async function isVideoInCache(videoId) {
     // If not in cache memory, try loading from backend
     try {
         console.log(`🔄 Cache miss for ${videoId}, checking backend directly...`);
+        const settings = await getSettings();
         const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-        const response = await fetch(`${API_BASE_URL}/api/extension/process-video?video_url=${encodeURIComponent(videoUrl)}`, {
+        const headers = { 'Accept': 'application/json' };
+
+        // Add API key if available
+        if (settings.apiKey) {
+            headers['X-OpenRouter-API-Key'] = settings.apiKey;
+        }
+
+        const response = await fetch(`${settings.apiBaseUrl}/api/extension/process-video?video_url=${encodeURIComponent(videoUrl)}`, {
             method: 'GET',
-            headers: { 'Accept': 'application/json' }
+            headers: headers
         });
 
         if (response.ok) {
@@ -324,7 +346,7 @@ async function handleVideoDetection(tabId, videoId, videoUrl) {
 // API Functions
 
 // Establish SSE connection for real-time claim updates
-function connectToClaimStream(videoId, tabId) {
+async function connectToClaimStream(videoId, tabId) {
     // Close existing connection if any
     const existingConnection = activeSSEConnections.get(videoId);
     if (existingConnection) {
@@ -332,7 +354,8 @@ function connectToClaimStream(videoId, tabId) {
     }
 
     console.log(`📡 Establishing SSE connection for video: ${videoId}`);
-    const sseUrl = `${API_BASE_URL}/api/extension/stream-claims?video_id=${videoId}`;
+    const settings = await getSettings();
+    const sseUrl = `${settings.apiBaseUrl}/api/extension/stream-claims?video_id=${videoId}`;
 
     const eventSource = new EventSource(sseUrl);
 
@@ -411,16 +434,24 @@ function closeClaimStream(videoId) {
 async function processVideo(videoUrl) {
     console.log('🌐 processVideo called with URL:', videoUrl);
 
+    const settings = await getSettings();
     const encodedVideoUrl = encodeURIComponent(videoUrl);
-    const apiUrl = `${API_BASE_URL}/api/extension/process-video?video_url=${encodedVideoUrl}`;
+    const apiUrl = `${settings.apiBaseUrl}/api/extension/process-video?video_url=${encodedVideoUrl}`;
     console.log('🚀 Making API call to:', apiUrl);
+
+    const headers = {
+        'Accept': 'application/json',
+    };
+
+    // Add API key if available
+    if (settings.apiKey) {
+        headers['X-OpenRouter-API-Key'] = settings.apiKey;
+    }
 
     try {
         const response = await fetch(apiUrl, {
             method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-            },
+            headers: headers,
         });
 
         console.log('📡 API response status:', response.status, response.statusText);

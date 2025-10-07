@@ -16,20 +16,11 @@ import { processClaimFactCheck } from '@/lib/workers/fact-checker';
  * 4. Return results
  */
 
-const openai = new OpenAI({
-  baseURL: 'https://openrouter.ai/api/v1',
-  apiKey: env.OPENROUTER_API_KEY,
-  defaultHeaders: {
-    'HTTP-Referer': 'https://fact-tube.app',
-    'X-Title': 'FactTube',
-  },
-});
-
 // CORS headers for Chrome Extension
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, X-OpenRouter-API-Key',
 };
 
 // Handle OPTIONS request for CORS preflight
@@ -51,6 +42,27 @@ export async function POST(request: NextRequest) {
         { status: 400, headers: corsHeaders }
       );
     }
+
+    // Get API key from header or environment variable
+    const customApiKey = request.headers.get('X-OpenRouter-API-Key');
+    const apiKey = customApiKey || env.OPENROUTER_API_KEY;
+
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'OpenRouter API key is required. Please configure it in the extension settings.' },
+        { status: 401, headers: corsHeaders }
+      );
+    }
+
+    // Create OpenAI client with the appropriate API key
+    const openai = new OpenAI({
+      baseURL: 'https://openrouter.ai/api/v1',
+      apiKey: apiKey,
+      defaultHeaders: {
+        'HTTP-Referer': 'https://fact-tube.app',
+        'X-Title': 'FactTube',
+      },
+    });
 
     console.log(`📹 Starting analysis for video: ${videoId}`);
 
@@ -112,22 +124,23 @@ export async function POST(request: NextRequest) {
       }
 
       transcript = transcriptData.transcript;
-    } catch (error: any) {
+    } catch (error) {
       console.error('❌ Error fetching transcript:', error);
+      const errorMessage = error instanceof Error ? error.message : 'No captions/subtitles available for this video';
       return NextResponse.json(
-        { 
+        {
           error: 'Failed to fetch transcript',
-          message: error.message || 'No captions/subtitles available for this video',
+          message: errorMessage,
         },
         { status: 400, headers: corsHeaders }
       );
     }
 
     // Extract segments
-    const segments = transcript.content?.body?.initial_segments?.map((segment: any) => ({
-      start: (segment.start_ms || 0) / 1000,
-      text: segment.snippet?.text || '',
-    })).filter((seg: any) => seg.text.trim()) || [];
+        const segments = transcript.content?.body?.initial_segments?.map((segment: { start_ms?: string | number; snippet?: { text?: string } }) => ({
+          start: (typeof segment.start_ms === 'string' ? parseFloat(segment.start_ms) || 0 : segment.start_ms || 0) / 1000,
+          text: segment.snippet?.text || '',
+        })).filter((seg: { start: number; text: string }) => seg.text.trim()) || [];
 
     if (segments.length === 0) {
       return NextResponse.json(
@@ -172,7 +185,7 @@ export async function POST(request: NextRequest) {
       console.log(`📤 Processing chunk ${i + 1}/${chunks.length}`);
 
       const transcriptText = chunk
-        .map((seg: any) => `[${Math.floor(seg.start)}s] ${seg.text}`)
+        .map((seg: { start: number; text: string }) => `[${Math.floor(seg.start)}s] ${seg.text}`)
         .join('\n');
 
       try {
@@ -323,9 +336,9 @@ If no significant fact-checkable claims exist, return: {"claims": []}`,
 /**
  * Chunk transcript segments into time-based chunks
  */
-function chunkTranscriptSegments(segments: any[], chunkDuration: number) {
-  const chunks = [];
-  let currentChunk: any[] = [];
+function chunkTranscriptSegments(segments: Array<{ start: number; text: string }>, chunkDuration: number) {
+  const chunks: Array<Array<{ start: number; text: string }>> = [];
+  let currentChunk: Array<{ start: number; text: string }> = [];
   let chunkStartTime = 0;
 
   for (const segment of segments) {

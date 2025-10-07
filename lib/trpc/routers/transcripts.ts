@@ -52,7 +52,7 @@ export const transcriptsRouter = router({
         console.log(`Attempting to fetch transcript for video: ${videoId}${input.lang ? `, lang: ${input.lang}` : ' (default language)'}`);
         
         // Create Innertube instance with optional language preference and proxy
-        const innertubeOptions: any = {};
+        const innertubeOptions: { lang?: string; fetch?: typeof fetch } = {};
 
         // Only set language if explicitly provided, otherwise use video's default language
         if (input.lang) {
@@ -96,14 +96,14 @@ export const transcriptsRouter = router({
 
         // Extract segments from the transcript
         // Using simplified structure: only start and text (Option 2 - token efficient)
-        const segments = transcript.content?.body?.initial_segments?.map((segment: any) => {
-          const startMs = segment.start_ms || 0;
+        const segments = transcript.content?.body?.initial_segments?.map((segment: { start_ms?: string | number; snippet?: { text?: string } }) => {
+          const startMs = typeof segment.start_ms === 'string' ? parseFloat(segment.start_ms) || 0 : segment.start_ms || 0;
 
           return {
             start: startMs / 1000, // Convert milliseconds to seconds
             text: segment.snippet?.text || '',
           };
-        }).filter((seg: any) => seg.text.trim()) || [];
+        }).filter((seg: { start: number; text: string }) => seg.text.trim()) || [];
 
         console.log(`Successfully processed ${segments.length} segments`);
 
@@ -117,22 +117,23 @@ export const transcriptsRouter = router({
           segments,
           totalSegments: segments.length,
         };
-      } catch (err: any) {
+      } catch (err) {
         console.error('Error fetching transcript:', err);
-        console.error('Error stack:', err.stack);
+        console.error('Error stack:', err instanceof Error ? err.stack : 'No stack trace');
         
         // Provide more helpful error messages
-        if (err.message?.includes('No transcript available')) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        if (errorMessage.includes('No transcript available')) {
           throw new Error('No captions/subtitles available for this video. The video may not have captions enabled.');
-        } else if (err.message?.includes('disabled')) {
+        } else if (errorMessage.includes('disabled')) {
           throw new Error('Captions are disabled for this video');
-        } else if (err.message?.includes('unavailable') || err.message?.includes('not found')) {
+        } else if (errorMessage.includes('unavailable') || errorMessage.includes('not found')) {
           throw new Error('Video is unavailable or does not exist');
-        } else if (err.message?.includes('TranscriptError')) {
+        } else if (errorMessage.includes('TranscriptError')) {
           throw new Error('This video does not have captions/subtitles available. Try a different video.');
         }
-        
-        throw new Error(err?.message || 'Failed to fetch transcript');
+
+        throw new Error(errorMessage || 'Failed to fetch transcript');
       }
     }),
 
@@ -166,9 +167,10 @@ export const transcriptsRouter = router({
           duration: basic.duration || 0,
           viewCount: basic.view_count || 0,
         };
-      } catch (err: any) {
+      } catch (err) {
         console.error('Error fetching video metadata:', err);
-        throw new Error(err?.message || 'Failed to fetch video metadata');
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch video metadata';
+        throw new Error(errorMessage);
       }
     }),
 

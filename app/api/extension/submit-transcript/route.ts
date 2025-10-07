@@ -39,7 +39,7 @@ export async function OPTIONS() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { videoId, videoUrl, videoTitle, channelName, segments } = body;
+    const { videoId, videoTitle, channelName, segments } = body;
 
     if (!videoId || !segments || !Array.isArray(segments)) {
       return NextResponse.json(
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
 
     // Prepare transcript text with timestamps
     const transcriptText = segments
-      .map((seg: any) => `[${Math.floor(seg.start)}s] ${seg.text}`)
+      .map((seg: { start: number; text: string }) => `[${Math.floor(seg.start)}s] ${seg.text}`)
       .join('\n');
 
     let contextMessage = '';

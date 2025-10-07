@@ -20,28 +20,27 @@ A Chrome extension that provides real-time fact-checking for YouTube videos with
 3. Click **Load unpacked**
 4. Select the `/public/chrome-extension` folder from your project
 
-### Step 2: Configure the Backend URL
+### Step 2: Configure Extension Settings
 
-Before using the extension, you need to configure the API endpoint:
+**New in v1.0:** The extension now has a settings popup for easy configuration!
 
-#### For Development (localhost)
+1. Click on the FactTube extension icon in your Chrome toolbar
+2. A settings popup will appear
+3. Configure the following:
+   - **OpenRouter API Key**: Get yours at [openrouter.ai/keys](https://openrouter.ai/keys)
+   - **Backend URL**: 
+     - Development: `http://localhost:3000` (default)
+     - Production: Your deployed URL (e.g., `https://your-app.vercel.app`)
+4. Click **Save Settings**
+5. Click **Test Connection** to verify everything works
 
-1. Open `background.js`
-2. Make sure `IS_PRODUCTION` is set to `false`:
-   ```javascript
-   const IS_PRODUCTION = false;
-   ```
+**Benefits:**
+- ✅ No need to edit code files
+- ✅ Users control their own API keys and costs
+- ✅ Easy switching between development and production
+- ✅ Secure local storage of credentials
 
-#### For Production
-
-1. Open `background.js`
-2. Set `IS_PRODUCTION` to `true`
-3. Update the production URL:
-   ```javascript
-   const API_BASE_URL = IS_PRODUCTION 
-     ? 'https://your-app.vercel.app' // Update this!
-     : 'http://localhost:3000';
-   ```
+See [SETTINGS.md](./SETTINGS.md) for detailed configuration guide.
 
 ### Step 3: Start Your Backend
 

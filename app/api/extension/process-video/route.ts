@@ -126,7 +126,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-function createSummary(claims: any[]) {
+function createSummary(claims: Array<{ status: string }>) {
   const summary = {
     verified: 0,
     false: 0,

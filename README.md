@@ -178,13 +178,21 @@ The Chrome extension provides real-time fact-checking directly on YouTube:
 3. Click "Load unpacked"
 4. Select /public/chrome-extension
 
-# Configure and test
-5. Start backend: pnpm dev
-6. Visit any YouTube video
-7. Click "Fact-Check" button
+# Configure settings
+5. Click the extension icon to open settings
+6. Add your OpenRouter API key (get one at openrouter.ai/keys)
+7. Configure backend URL (default: http://localhost:3000)
+8. Click "Save Settings"
+
+# Test the extension
+9. Start backend: pnpm dev
+10. Visit any YouTube video
+11. Click "Fact-Check" button
 ```
 
-See [CHROME_EXTENSION_SETUP.md](./CHROME_EXTENSION_SETUP.md) for detailed instructions.
+**Important for Production:** Users must configure their own OpenRouter API key in the extension settings. This gives users full control over their API usage and costs.
+
+See [CHROME_EXTENSION_SETUP.md](./CHROME_EXTENSION_SETUP.md) for detailed instructions and [public/chrome-extension/SETTINGS.md](./public/chrome-extension/SETTINGS.md) for the settings guide.
 
 ## 🤝 Contributing
 

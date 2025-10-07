@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { claims } from '@/lib/db/schema';
-import { eq, gt } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 /**
  * Server-Sent Events endpoint for streaming claim updates to chrome extension
@@ -41,10 +41,10 @@ export async function GET(request: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       let lastCheckTime = new Date();
-      let sentClaimIds = new Set<string>();
+      const sentClaimIds = new Set<string>();
 
       // Function to send a message to the client
-      const sendMessage = (type: string, data: any) => {
+      const sendMessage = (type: string, data: Record<string, unknown>) => {
         const message = `data: ${JSON.stringify({ type, data })}\n\n`;
         controller.enqueue(encoder.encode(message));
       };
