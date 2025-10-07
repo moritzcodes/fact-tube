@@ -70,9 +70,8 @@ export async function POST(request: NextRequest) {
         .where(eq(videos.id, videoId))
         .limit(1);
 
-      // Group cached claims by proximity too
-      const groupedCachedClaims = groupClaimsByProximity(existingClaims, 10);
-      console.log(`🔍 Grouped ${existingClaims.length} cached claims into ${groupedCachedClaims.length} markers`);
+      // Return flat list of claims - frontend will handle visual grouping
+      console.log(`📤 Returning ${existingClaims.length} cached claims (frontend will handle grouping)`);
 
       return NextResponse.json({
         success: true,
@@ -80,21 +79,15 @@ export async function POST(request: NextRequest) {
         videoId,
         title: videoData[0]?.title || '',
         totalClaims: existingClaims.length,
-        totalMarkers: groupedCachedClaims.length,
-        claims: groupedCachedClaims.map(group => ({
-          id: group.claims[0].id, // Use first claim's ID as group ID
-          claims: group.claims.map(claim => ({
-            id: claim.id,
-            claim: claim.claim,
-            speaker: claim.speaker || 'Unknown',
-            timestamp: claim.timestamp,
-            status: claim.status,
-            verdict: claim.verdict || '',
-            sources: claim.sources ? JSON.parse(claim.sources) : [],
-            sourceBias: claim.sourceBias ? JSON.parse(claim.sourceBias) : null,
-          })),
-          timestamp: group.timestamp, // Group timestamp (earliest in group)
-          claimCount: group.claims.length,
+        claims: existingClaims.map(claim => ({
+          id: claim.id,
+          claim: claim.claim,
+          speaker: claim.speaker || 'Unknown',
+          timestamp: claim.timestamp,
+          status: claim.status,
+          verdict: claim.verdict || '',
+          sources: claim.sources ? JSON.parse(claim.sources) : [],
+          sourceBias: claim.sourceBias ? JSON.parse(claim.sourceBias) : null,
         })),
       }, { headers: corsHeaders });
     }
@@ -297,9 +290,8 @@ If no significant fact-checkable claims exist, return: {"claims": []}`,
 
     console.log(`📊 Total claims in database for this video: ${allClaimsFromDb.length}`);
 
-    // Group claims that are close together (within 10 seconds)
-    const groupedClaims = groupClaimsByProximity(allClaimsFromDb, 10);
-    console.log(`🔍 Grouped ${allClaimsFromDb.length} claims into ${groupedClaims.length} markers`);
+    // Return flat list of claims - frontend will handle visual grouping
+    console.log(`📤 Returning ${allClaimsFromDb.length} claims (frontend will handle grouping)`);
 
     return NextResponse.json({
       success: true,
@@ -308,21 +300,15 @@ If no significant fact-checkable claims exist, return: {"claims": []}`,
       title: videoTitle,
       channelName,
       totalClaims: allClaimsFromDb.length,
-      totalMarkers: groupedClaims.length,
-      claims: groupedClaims.map(group => ({
-        id: group.claims[0].id, // Use first claim's ID as group ID
-        claims: group.claims.map(claim => ({
-          id: claim.id,
-          claim: claim.claim,
-          speaker: claim.speaker,
-          timestamp: claim.timestamp,
-          status: claim.status,
-          verdict: claim.verdict || '',
-          sources: claim.sources ? JSON.parse(claim.sources) : [],
-          sourceBias: claim.sourceBias ? JSON.parse(claim.sourceBias) : null,
-        })),
-        timestamp: group.timestamp, // Group timestamp (earliest in group)
-        claimCount: group.claims.length,
+      claims: allClaimsFromDb.map(claim => ({
+        id: claim.id,
+        claim: claim.claim,
+        speaker: claim.speaker,
+        timestamp: claim.timestamp,
+        status: claim.status,
+        verdict: claim.verdict || '',
+        sources: claim.sources ? JSON.parse(claim.sources) : [],
+        sourceBias: claim.sourceBias ? JSON.parse(claim.sourceBias) : null,
       })),
     }, { headers: corsHeaders });
   } catch (error) {
@@ -357,47 +343,4 @@ function chunkTranscriptSegments(segments: any[], chunkDuration: number) {
 
   return chunks;
 }
-
-/**
- * Group claims that are close together in time
- * This prevents timeline markers from being too crowded by combining nearby claims
- */
-function groupClaimsByProximity(claims: any[], maxSpacing: number = 10) {
-  if (claims.length === 0) return [];
-  if (claims.length === 1) return [{ timestamp: claims[0].timestamp, claims: [claims[0]] }];
-
-  // Sort by timestamp
-  const sorted = [...claims].sort((a, b) => a.timestamp - b.timestamp);
-  const groups = [];
-  let currentGroup = [sorted[0]];
-
-  for (let i = 1; i < sorted.length; i++) {
-    const currentClaim = sorted[i];
-    const lastClaimInGroup = currentGroup[currentGroup.length - 1];
-
-    // If current claim is within maxSpacing seconds of the last claim in the group, add it to the group
-    if (currentClaim.timestamp - lastClaimInGroup.timestamp < maxSpacing) {
-      currentGroup.push(currentClaim);
-      console.log(`📍 Grouping claim at ${currentClaim.timestamp}s with claim at ${lastClaimInGroup.timestamp}s`);
-    } else {
-      // Start a new group
-      groups.push({
-        timestamp: currentGroup[0].timestamp, // Use earliest timestamp in group
-        claims: currentGroup,
-      });
-      currentGroup = [currentClaim];
-    }
-  }
-
-  // Don't forget the last group
-  if (currentGroup.length > 0) {
-    groups.push({
-      timestamp: currentGroup[0].timestamp,
-      claims: currentGroup,
-    });
-  }
-
-  return groups;
-}
-
 

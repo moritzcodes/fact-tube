@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, integer, uuid, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer, uuid, pgEnum, index } from "drizzle-orm/pg-core";
 
 // Enum for claim status
 export const claimStatusEnum = pgEnum('claim_status', [
@@ -22,7 +22,12 @@ export const claims = pgTable("claims", {
   sourceBias: text("source_bias"), // JSON string of sources with bias information
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  // Index for faster queries by videoId (most common query pattern)
+  videoIdIdx: index("claims_video_id_idx").on(table.videoId),
+  // Composite index for ordering claims by videoId and timestamp
+  videoIdTimestampIdx: index("claims_video_id_timestamp_idx").on(table.videoId, table.timestamp),
+}));
 
 // Transcript segments table for storing processed transcript chunks
 export const transcriptSegments = pgTable("transcript_segments", {

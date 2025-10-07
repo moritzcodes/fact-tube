@@ -87,7 +87,7 @@ YouTubeFactChecker.prototype.loadData = function(data) {
         // Debug: Check speaker data
         data.claim_responses.forEach((cr, idx) => {
             console.log(`📢 Claim ${idx} speaker data:`, {
-                speaker: cr.claim ? speaker : cr.speaker,
+                speaker: cr.claim ? speaker || cr.speaker : null,
                 claimSpeaker: cr.speaker,
                 hasClaimObject: !!cr.claim,
                 claimKeys: cr.claim ? Object.keys(cr.claim) : []
@@ -97,9 +97,9 @@ YouTubeFactChecker.prototype.loadData = function(data) {
         // Transform API response format to match overlay format
         let transformedClaims = data.claim_responses.map(claimResponse => {
             // Extract speaker - try multiple possible locations
-            const speaker = claimResponse.claim ? speaker : claimResponse.speaker ||
+            const speaker = claimResponse.claim ? speaker :
                 claimResponse.speaker ||
-                (claimResponse.claim && typeof claimResponse.claim.speaker === 'string' ? claimResponse.claim.speaker : null);
+                (typeof claimResponse.claim ? speaker === 'string' ? claimResponse.claim.speaker : null : null)
 
             // Only default to 'Unknown' if speaker is truly null/undefined (not empty string)
             const finalSpeaker = speaker !== null && speaker !== undefined ? speaker : 'Unknown';
@@ -143,57 +143,33 @@ YouTubeFactChecker.prototype.loadData = function(data) {
         console.log('✅ Data loaded. Found', this.mockFactChecks.length, 'claims');
         console.log('📊 Summary:', summary);
     } else if (data.claims && data.claims.length > 0) {
-        // NEW: Handle grouped claims format from analyze-video endpoint
+        // Handle flat claims array from analyze-video endpoint
         console.log('📦 Processing claims from API...', data.claims);
 
-        // Flatten grouped claims into individual claims
-        let allClaims = [];
-        data.claims.forEach(group => {
-            if (group.claims && group.claims.length > 0) {
-                // This is a group with multiple claims
-                group.claims.forEach(claim => {
-                    const speaker = claim.speaker !== null && claim.speaker !== undefined ? claim.speaker : 'Unknown';
-                    console.log('📢 Group claim speaker:', { raw: claim.speaker, final: speaker });
+        // Transform flat claims array
+        let allClaims = data.claims.map(claim => {
+            const speaker = claim.speaker !== null && claim.speaker !== undefined ? claim.speaker : 'Unknown';
+            console.log('📢 Claim speaker:', { raw: claim.speaker, final: speaker, timestamp: claim.timestamp });
 
-                    allClaims.push({
-                        timestamp: claim.timestamp,
-                        claim: claim.claim,
-                        speaker: speaker,
-                        status: claim.status || 'pending',
-                        sources: claim.sources || [],
-                        evidence: claim.evidence || [],
-                        sourceBias: claim.sourceBias || null,
-                        verdict: claim.verdict || '',
-                        judgement: {
-                            reasoning: claim.verdict || 'Analysis in progress...',
-                            summary: claim.verdict ? claim.verdict.split('.')[0] + '.' : 'Pending analysis'
-                        }
-                    });
-                });
-            } else {
-                // Single claim (not grouped) - backward compatibility
-                const speaker = group.speaker !== null && group.speaker !== undefined ? group.speaker : 'Unknown';
-                console.log('📢 Single claim speaker:', { raw: group.speaker, final: speaker });
-
-                allClaims.push({
-                    timestamp: group.timestamp,
-                    claim: group.claim,
-                    speaker: speaker,
-                    status: group.status || 'pending',
-                    sources: group.sources || [],
-                    evidence: group.evidence || [],
-                    sourceBias: group.sourceBias || null,
-                    verdict: group.verdict || '',
-                    judgement: {
-                        reasoning: group.verdict || 'Analysis in progress...',
-                        summary: group.verdict ? group.verdict.split('.')[0] + '.' : 'Pending analysis'
-                    }
-                });
-            }
+            return {
+                id: claim.id,
+                timestamp: claim.timestamp,
+                claim: claim.claim,
+                speaker: speaker,
+                status: claim.status || 'pending',
+                sources: claim.sources || [],
+                evidence: claim.evidence || [],
+                sourceBias: claim.sourceBias || null,
+                verdict: claim.verdict || '',
+                judgement: {
+                    reasoning: claim.verdict || 'Analysis in progress...',
+                    summary: claim.verdict ? claim.verdict.split('.')[0] + '.' : 'Pending analysis'
+                }
+            };
         });
 
         this.mockFactChecks = allClaims;
-        console.log('✅ Processed', data.claims.length, 'marker groups containing', allClaims.length, 'total claims');
+        console.log('✅ Processed', data.claims.length, 'claims from API');
 
         // Create timeline markers with real data (extension will handle its own grouping for display)
         this.createTimelineMarkers();
@@ -270,9 +246,9 @@ YouTubeFactChecker.prototype.handleNewClaim = function(claimData) {
     console.log('Adding new claim to timeline:', claimData);
 
     // Extract speaker - try multiple possible locations
-    const speaker = claimData.claim ? speaker : claimData.speaker ||
+    const speaker = claimData.claim ? speaker :
         claimData.speaker ||
-        (claimData.claim && typeof claimData.claim.speaker === 'string' ? claimData.claim.speaker : null);
+        (typeof claimData.claim ? speaker === 'string' ? claimData.claim.speaker : null : null)
     const finalSpeaker = speaker !== null && speaker !== undefined ? speaker : 'Unknown';
 
     console.log('📢 SSE new claim speaker:', {
