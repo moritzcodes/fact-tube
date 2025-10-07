@@ -130,11 +130,19 @@ YouTubeFactChecker.prototype.handleAnalysisComplete = function(result) {
     console.log('📊 Result object:', result);
     console.log('📊 Result keys:', Object.keys(result || {}));
     console.log('📊 Claim responses:', result.claim_responses);
+    console.log('📊 Total claims:', result.totalClaims);
 
-    // Reset analysis state
+    // Reset analysis state FIRST - this stops the spinner
     console.log('🔄 Resetting analysis state...');
     this.isAnalysisInProgress = false;
     this.updateButtonState();
+
+    // Handle case where no claims were found
+    if (result.totalClaims === 0 || (!result.claim_responses || result.claim_responses.length === 0)) {
+        console.log('ℹ️ No claims found in this video');
+        this.mockFactChecks = [];
+        return;
+    }
 
     // Transform API response to match existing overlay format
     if (result.claim_responses && result.claim_responses.length > 0) {
@@ -166,9 +174,6 @@ YouTubeFactChecker.prototype.handleAnalysisComplete = function(result) {
         const summary = result.summary || this.createSummaryFromClaims();
         console.log('✅ Analysis complete. Found', this.mockFactChecks.length, 'claims');
         console.log('📊 Summary:', summary);
-    } else {
-        // No claims found
-        console.log('No claims found in video');
     }
 };
 
@@ -224,8 +229,8 @@ YouTubeFactChecker.prototype.loadOrCreateGrouping = function() {
 
         if (storedData) {
             const parsed = JSON.parse(storedData);
-            // Relaxed validation - allow ±2 claims difference to handle minor updates
-            const claimDiff = Math.abs(parsed.claimCount - this.mockFactChecks.length);
+            // STRICT validation - claim count must match exactly for SSE updates
+            const claimCountMatches = parsed.claimCount === this.mockFactChecks.length;
 
             // Check if version is current (v4 = pixel-based)
             const isCurrentVersion = parsed.version === 4;
@@ -239,12 +244,12 @@ YouTubeFactChecker.prototype.loadOrCreateGrouping = function() {
             const widthDiff = Math.abs(currentWidth - (parsed.progressBarWidth || 800));
             const widthChanged = widthDiff > 50; // Allow 50px difference
 
-            if (claimDiff <= 2 && parsed.grouping && parsed.grouping.length > 0 && isCurrentVersion && hasValidWidth && !widthChanged) {
-                console.log('📦 Loaded stored grouping data:', parsed.grouping.length, 'groups (claim diff:', claimDiff, ', width:', parsed.progressBarWidth + 'px)');
+            if (claimCountMatches && parsed.grouping && parsed.grouping.length > 0 && isCurrentVersion && hasValidWidth && !widthChanged) {
+                console.log('📦 Loaded stored grouping data:', parsed.grouping.length, 'groups (claim count:', parsed.claimCount, ', width:', parsed.progressBarWidth + 'px)');
                 this.markerGrouping = parsed.grouping;
                 return;
             } else {
-                console.log('⚠️ Stored grouping data outdated, recreating... (claim diff:', claimDiff, ', version:', parsed.version, ', width change:', widthDiff + 'px)');
+                console.log('⚠️ Stored grouping data outdated, recreating... (claim count:', parsed.claimCount, '→', this.mockFactChecks.length, ', version:', parsed.version, ', width change:', widthDiff + 'px)');
             }
         }
     } catch (error) {
@@ -874,7 +879,6 @@ YouTubeFactChecker.prototype.showGroupTooltip = function(marker, group) {
 
     // Simplified content - just count and time range, similar to single marker tooltips
     contentContainer.innerHTML = `
-        <span style="font-size: 14px; color: rgba(96, 165, 250, 1);">📊</span>
         <span style="text-transform: uppercase; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; color: rgba(96, 165, 250, 1);">${group.claims.length} CLAIMS</span>
         <span style="color: rgba(255, 255, 255, 0.6); font-size: 11px;">•</span>
         <span style="font-size: 11px; color: rgba(255, 255, 255, 0.9); font-weight: 400;">${timeRange}</span>

@@ -459,12 +459,24 @@ YouTubeFactChecker.prototype.injectCardContent = function(factCheckData, keepHid
         // Debug logging
         console.log('Creating morph card for fact check:', factCheckData);
         console.log('Sources data in morph:', factCheckData.sources);
+        console.log('📢 Speaker in morph card:', {
+            speaker: factCheckData.speaker,
+            type: typeof factCheckData.speaker,
+            isUnknown: factCheckData.speaker === 'Unknown',
+            willShow: factCheckData.speaker && factCheckData.speaker !== 'Unknown' && factCheckData.speaker.trim() !== ''
+        });
 
         // Get status styling
         const statusStyle = this.getStatusColor(factCheckData.status);
 
         // Create sources preview with clickable links
         const sourcesPreview = this._createSourcesSection(factCheckData);
+
+        // Check if speaker should be displayed (not Unknown and not empty/whitespace)
+        const hasSpeaker = factCheckData.speaker &&
+            factCheckData.speaker !== 'Unknown' &&
+            factCheckData.speaker.trim() !== '';
+
         content.innerHTML = `
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px;">
             <div style="
@@ -486,7 +498,7 @@ YouTubeFactChecker.prototype.injectCardContent = function(factCheckData, keepHid
                 <span>${statusStyle.icon}</span>
                 <span>${factCheckData.status || 'Unknown'}</span>
             </div>
-            ${factCheckData.speaker && factCheckData.speaker !== 'Unknown' ? `
+            ${hasSpeaker ? `
                 <div style="
                     display: inline-flex;
                     align-items: center;
@@ -500,7 +512,7 @@ YouTubeFactChecker.prototype.injectCardContent = function(factCheckData, keepHid
                     white-space: nowrap;
                     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
                 ">
-                    ${factCheckData.speaker}
+                    ${factCheckData.speaker.trim()}
                 </div>
             ` : ''}
         </div>

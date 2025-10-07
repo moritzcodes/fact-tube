@@ -59,11 +59,22 @@ YouTubeFactChecker.prototype.loadData = function(data) {
         hasClaims: !!data.claims,
         hasFactChecks: !!data.factChecks,
         hasClaimResponses: !!data.claim_responses,
-        claimResponsesLength: data.claim_responses ? data.claim_responses.length : 0
+        claimResponsesLength: data.claim_responses ? data.claim_responses.length : 0,
+        totalClaims: data.totalClaims
     });
 
     this.claims = data.claims || [];
     this.factChecks = data.factChecks || [];
+
+    // Handle case where no claims were found
+    if (data.totalClaims === 0 || ((!data.claim_responses || data.claim_responses.length === 0) && (!data.claims || data.claims.length === 0))) {
+        console.log('ℹ️ No claims found in this video');
+        this.mockFactChecks = [];
+        this.isAnalysisInProgress = false;
+        this.updateButtonState();
+        this.updateVisibleClaims();
+        return;
+    }
 
     // Transform API data to match expected mockFactChecks format
     if (data.claim_responses && data.claim_responses.length > 0) {
@@ -73,22 +84,48 @@ YouTubeFactChecker.prototype.loadData = function(data) {
         const responsesWithBias = data.claim_responses.filter(cr => cr.sourceBias && cr.sourceBias.length > 0);
         console.log('📊 Claims with bias data:', responsesWithBias.length, '/', data.claim_responses.length);
 
+        // Debug: Check speaker data
+        data.claim_responses.forEach((cr, idx) => {
+            console.log(`📢 Claim ${idx} speaker data:`, {
+                speaker: cr.claim ? speaker : cr.speaker,
+                claimSpeaker: cr.speaker,
+                hasClaimObject: !!cr.claim,
+                claimKeys: cr.claim ? Object.keys(cr.claim) : []
+            });
+        });
+
         // Transform API response format to match overlay format
-        let transformedClaims = data.claim_responses.map(claimResponse => ({
-            timestamp: claimResponse.claim.start,
-            endTimestamp: claimResponse.claim.start + 10, // Default 10-second duration
-            claim: claimResponse.claim.claim,
-            speaker: claimResponse.claim.speaker || 'Unknown',
-            status: claimResponse.status, // Use actual API status instead of mapping
-            sources: claimResponse.evidence ? claimResponse.evidence.map(ev => ev.source_url).filter(Boolean) : [],
-            evidence: claimResponse.evidence || [], // Preserve full evidence data for clickable links
-            sourceBias: claimResponse.sourceBias || null, // Include source bias information
-            judgement: {
-                reasoning: claimResponse.written_summary || 'No detailed explanation provided',
-                summary: claimResponse.written_summary ?
-                    claimResponse.written_summary.split('.')[0] + '.' : `Status: ${claimResponse.status}`
-            }
-        }));
+        let transformedClaims = data.claim_responses.map(claimResponse => {
+            // Extract speaker - try multiple possible locations
+            const speaker = claimResponse.claim ? speaker : claimResponse.speaker ||
+                claimResponse.speaker ||
+                (claimResponse.claim && typeof claimResponse.claim.speaker === 'string' ? claimResponse.claim.speaker : null);
+
+            // Only default to 'Unknown' if speaker is truly null/undefined (not empty string)
+            const finalSpeaker = speaker !== null && speaker !== undefined ? speaker : 'Unknown';
+
+            console.log('📢 Processing speaker:', {
+                raw: claimResponse.claim ? speaker : claimResponse.speaker,
+                extracted: speaker,
+                final: finalSpeaker
+            });
+
+            return {
+                timestamp: claimResponse.claim.start,
+                endTimestamp: claimResponse.claim.start + 10, // Default 10-second duration
+                claim: claimResponse.claim.claim,
+                speaker: finalSpeaker,
+                status: claimResponse.status, // Use actual API status instead of mapping
+                sources: claimResponse.evidence ? claimResponse.evidence.map(ev => ev.source_url).filter(Boolean) : [],
+                evidence: claimResponse.evidence || [], // Preserve full evidence data for clickable links
+                sourceBias: claimResponse.sourceBias || null, // Include source bias information
+                judgement: {
+                    reasoning: claimResponse.written_summary || 'No detailed explanation provided',
+                    summary: claimResponse.written_summary ?
+                        claimResponse.written_summary.split('.')[0] + '.' : `Status: ${claimResponse.status}`
+                }
+            };
+        });
 
         // Filter claims that are too close together (within 30 seconds) for better UX
         transformedClaims = this.filterClaimsByProximity(transformedClaims, 30);
@@ -115,10 +152,13 @@ YouTubeFactChecker.prototype.loadData = function(data) {
             if (group.claims && group.claims.length > 0) {
                 // This is a group with multiple claims
                 group.claims.forEach(claim => {
+                    const speaker = claim.speaker !== null && claim.speaker !== undefined ? claim.speaker : 'Unknown';
+                    console.log('📢 Group claim speaker:', { raw: claim.speaker, final: speaker });
+
                     allClaims.push({
                         timestamp: claim.timestamp,
                         claim: claim.claim,
-                        speaker: claim.speaker || 'Unknown',
+                        speaker: speaker,
                         status: claim.status || 'pending',
                         sources: claim.sources || [],
                         evidence: claim.evidence || [],
@@ -132,10 +172,13 @@ YouTubeFactChecker.prototype.loadData = function(data) {
                 });
             } else {
                 // Single claim (not grouped) - backward compatibility
+                const speaker = group.speaker !== null && group.speaker !== undefined ? group.speaker : 'Unknown';
+                console.log('📢 Single claim speaker:', { raw: group.speaker, final: speaker });
+
                 allClaims.push({
                     timestamp: group.timestamp,
                     claim: group.claim,
-                    speaker: group.speaker || 'Unknown',
+                    speaker: speaker,
                     status: group.status || 'pending',
                     sources: group.sources || [],
                     evidence: group.evidence || [],
@@ -226,12 +269,24 @@ YouTubeFactChecker.prototype.updateFactCheck = function(factCheckData) {
 YouTubeFactChecker.prototype.handleNewClaim = function(claimData) {
     console.log('Adding new claim to timeline:', claimData);
 
+    // Extract speaker - try multiple possible locations
+    const speaker = claimData.claim ? speaker : claimData.speaker ||
+        claimData.speaker ||
+        (claimData.claim && typeof claimData.claim.speaker === 'string' ? claimData.claim.speaker : null);
+    const finalSpeaker = speaker !== null && speaker !== undefined ? speaker : 'Unknown';
+
+    console.log('📢 SSE new claim speaker:', {
+        raw: claimData.claim ? speaker : claimData.speaker,
+        extracted: speaker,
+        final: finalSpeaker
+    });
+
     // Transform SSE claim format to overlay format
     const transformedClaim = {
         timestamp: claimData.claim.start,
         endTimestamp: claimData.claim.start + 10,
         claim: claimData.claim.claim,
-        speaker: claimData.claim.speaker || 'Unknown',
+        speaker: finalSpeaker,
         status: claimData.status, // Use actual API status
         sources: claimData.evidence ? claimData.evidence.map(ev => ev.source_url).filter(Boolean) : [],
         evidence: claimData.evidence || [],
@@ -248,6 +303,9 @@ YouTubeFactChecker.prototype.handleNewClaim = function(claimData) {
 
     // Sort by timestamp
     this.mockFactChecks.sort((a, b) => a.timestamp - b.timestamp);
+
+    // IMPORTANT: Regenerate grouping data to include the new claim
+    this.loadOrCreateGrouping();
 
     // Update timeline markers
     this.createTimelineMarkers();
@@ -277,6 +335,9 @@ YouTubeFactChecker.prototype.handleClaimUpdate = function(updateData) {
         if (updateData.sourceBias) {
             this.mockFactChecks[claimIndex].sourceBias = updateData.sourceBias;
         }
+
+        // IMPORTANT: Regenerate grouping data to reflect updated status colors
+        this.loadOrCreateGrouping();
 
         // Update timeline markers
         this.createTimelineMarkers();
@@ -319,6 +380,10 @@ YouTubeFactChecker.prototype.handleExtractTranscript = async function(data, send
         } else {
             console.log(`Extracted ${result.totalClaims} claims. Fact-checking in progress...`);
         }
+
+        // Process and display the data (this stops the spinner and shows claims)
+        console.log('📊 Processing data and stopping spinner...');
+        this.loadData(result);
 
         // Send success response back to background script
         if (sendResponse) {
