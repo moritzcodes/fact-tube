@@ -123,7 +123,7 @@ if (settings.openrouterApiKey) {
   headers['X-OpenRouter-API-Key'] = settings.openrouterApiKey;
 }
 
-fetch(`${settings.apiBaseUrl}/api/endpoint`, {
+fetch(`${settings.apiBaseUrl.replace(/\/$/, '')}/api/endpoint`, {
   headers: headers,
   // ...
 });

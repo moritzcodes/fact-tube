@@ -41,7 +41,7 @@ async function loadCachedVideo(videoId) {
             headers['X-OpenRouter-API-Key'] = settings.apiKey;
         }
 
-        const response = await fetch(`${settings.apiBaseUrl}/api/extension/process-video?video_url=${encodeURIComponent(videoUrl)}`, {
+        const response = await fetch(`${settings.apiBaseUrl.replace(/\/$/, '')}/api/extension/process-video?video_url=${encodeURIComponent(videoUrl)}`, {
             method: 'GET',
             headers: headers
         });
@@ -85,7 +85,7 @@ async function isVideoInCache(videoId) {
             headers['X-OpenRouter-API-Key'] = settings.apiKey;
         }
 
-        const response = await fetch(`${settings.apiBaseUrl}/api/extension/process-video?video_url=${encodeURIComponent(videoUrl)}`, {
+        const response = await fetch(`${settings.apiBaseUrl.replace(/\/$/, '')}/api/extension/process-video?video_url=${encodeURIComponent(videoUrl)}`, {
             method: 'GET',
             headers: headers
         });
@@ -355,7 +355,7 @@ async function connectToClaimStream(videoId, tabId) {
 
     console.log(`📡 Establishing SSE connection for video: ${videoId}`);
     const settings = await getSettings();
-    const sseUrl = `${settings.apiBaseUrl}/api/extension/stream-claims?video_id=${videoId}`;
+    const sseUrl = `${settings.apiBaseUrl.replace(/\/$/, '')}/api/extension/stream-claims?video_id=${videoId}`;
 
     const eventSource = new EventSource(sseUrl);
 
@@ -436,7 +436,7 @@ async function processVideo(videoUrl) {
 
     const settings = await getSettings();
     const encodedVideoUrl = encodeURIComponent(videoUrl);
-    const apiUrl = `${settings.apiBaseUrl}/api/extension/process-video?video_url=${encodedVideoUrl}`;
+    const apiUrl = `${settings.apiBaseUrl.replace(/\/$/, '')}/api/extension/process-video?video_url=${encodedVideoUrl}`;
     console.log('🚀 Making API call to:', apiUrl);
 
     const headers = {

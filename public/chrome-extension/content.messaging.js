@@ -352,7 +352,7 @@ YouTubeFactChecker.prototype.handleExtractTranscript = async function(data, send
             headers['X-OpenRouter-API-Key'] = settings.apiKey;
         }
 
-        const response = await fetch(`${settings.apiBaseUrl}/api/extension/analyze-video`, {
+        const response = await fetch(`${settings.apiBaseUrl.replace(/\/$/, '')}/api/extension/analyze-video`, {
             method: 'POST',
             headers: headers,
             body: JSON.stringify({

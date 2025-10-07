@@ -20,7 +20,8 @@ import { processClaimFactCheck } from '@/lib/workers/fact-checker';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-OpenRouter-API-Key',
+  'Access-Control-Allow-Headers': 'Content-Type, X-OpenRouter-API-Key, Authorization',
+  'Access-Control-Max-Age': '86400', // 24 hours
 };
 
 // Handle OPTIONS request for CORS preflight

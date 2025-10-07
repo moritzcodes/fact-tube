@@ -14,7 +14,8 @@ export const dynamic = 'force-dynamic';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, X-OpenRouter-API-Key, Authorization',
+  'Access-Control-Max-Age': '86400', // 24 hours
 };
 
 // Handle OPTIONS request for CORS preflight
