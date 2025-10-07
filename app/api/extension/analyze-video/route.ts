@@ -70,21 +70,31 @@ export async function POST(request: NextRequest) {
         .where(eq(videos.id, videoId))
         .limit(1);
 
+      // Group cached claims by proximity too
+      const groupedCachedClaims = groupClaimsByProximity(existingClaims, 10);
+      console.log(`🔍 Grouped ${existingClaims.length} cached claims into ${groupedCachedClaims.length} markers`);
+
       return NextResponse.json({
         success: true,
         cached: true,
         videoId,
         title: videoData[0]?.title || '',
         totalClaims: existingClaims.length,
-        claims: existingClaims.map(claim => ({
-          id: claim.id,
-          claim: claim.claim,
-          speaker: claim.speaker || 'Unknown',
-          timestamp: claim.timestamp,
-          status: claim.status,
-          verdict: claim.verdict || '',
-          sources: claim.sources ? JSON.parse(claim.sources) : [],
-          sourceBias: claim.sourceBias ? JSON.parse(claim.sourceBias) : null,
+        totalMarkers: groupedCachedClaims.length,
+        claims: groupedCachedClaims.map(group => ({
+          id: group.claims[0].id, // Use first claim's ID as group ID
+          claims: group.claims.map(claim => ({
+            id: claim.id,
+            claim: claim.claim,
+            speaker: claim.speaker || 'Unknown',
+            timestamp: claim.timestamp,
+            status: claim.status,
+            verdict: claim.verdict || '',
+            sources: claim.sources ? JSON.parse(claim.sources) : [],
+            sourceBias: claim.sourceBias ? JSON.parse(claim.sourceBias) : null,
+          })),
+          timestamp: group.timestamp, // Group timestamp (earliest in group)
+          claimCount: group.claims.length,
         })),
       }, { headers: corsHeaders });
     }
@@ -96,7 +106,7 @@ export async function POST(request: NextRequest) {
     
     try {
       const innertube = await Innertube.create();
-      videoInfo = await innertube.getInfo(videoId);
+      videoInfo = await innertube.getInfo(videoId); 
       
       if (!videoInfo) {
         throw new Error('Video not found or unavailable');
@@ -275,11 +285,21 @@ If no significant fact-checkable claims exist, return: {"claims": []}`,
       }
     }
 
-    // Filter out claims that are too close together (within 30 seconds)
-    const filteredClaims = filterClaimsByProximity(allClaims, 30);
-    console.log(`🔍 Filtered ${allClaims.length} claims to ${filteredClaims.length} (removed claims too close together)`);
-    
-    console.log(`🎉 Analysis complete! Total claims: ${filteredClaims.length}`);
+    console.log(`🎉 Processing complete! Extracted ${allClaims.length} new claims in this run`);
+
+    // IMPORTANT: Fetch ALL claims from database (not just from this run)
+    // This ensures we return everything even if the user refreshed during processing
+    const allClaimsFromDb = await db
+      .select()
+      .from(claims)
+      .where(eq(claims.videoId, videoId))
+      .orderBy(claims.timestamp);
+
+    console.log(`📊 Total claims in database for this video: ${allClaimsFromDb.length}`);
+
+    // Group claims that are close together (within 10 seconds)
+    const groupedClaims = groupClaimsByProximity(allClaimsFromDb, 10);
+    console.log(`🔍 Grouped ${allClaimsFromDb.length} claims into ${groupedClaims.length} markers`);
 
     return NextResponse.json({
       success: true,
@@ -287,13 +307,22 @@ If no significant fact-checkable claims exist, return: {"claims": []}`,
       videoId,
       title: videoTitle,
       channelName,
-      totalClaims: filteredClaims.length,
-      claims: filteredClaims.map(claim => ({
-        id: claim.id,
-        claim: claim.claim,
-        speaker: claim.speaker,
-        timestamp: claim.timestamp,
-        status: claim.status,
+      totalClaims: allClaimsFromDb.length,
+      totalMarkers: groupedClaims.length,
+      claims: groupedClaims.map(group => ({
+        id: group.claims[0].id, // Use first claim's ID as group ID
+        claims: group.claims.map(claim => ({
+          id: claim.id,
+          claim: claim.claim,
+          speaker: claim.speaker,
+          timestamp: claim.timestamp,
+          status: claim.status,
+          verdict: claim.verdict || '',
+          sources: claim.sources ? JSON.parse(claim.sources) : [],
+          sourceBias: claim.sourceBias ? JSON.parse(claim.sourceBias) : null,
+        })),
+        timestamp: group.timestamp, // Group timestamp (earliest in group)
+        claimCount: group.claims.length,
       })),
     }, { headers: corsHeaders });
   } catch (error) {
@@ -330,28 +359,45 @@ function chunkTranscriptSegments(segments: any[], chunkDuration: number) {
 }
 
 /**
- * Filter claims to ensure minimum time spacing between them
- * This prevents timeline markers from being too crowded
+ * Group claims that are close together in time
+ * This prevents timeline markers from being too crowded by combining nearby claims
  */
-function filterClaimsByProximity(claims: any[], minSpacing: number = 30) {
-  if (claims.length <= 1) return claims;
+function groupClaimsByProximity(claims: any[], maxSpacing: number = 10) {
+  if (claims.length === 0) return [];
+  if (claims.length === 1) return [{ timestamp: claims[0].timestamp, claims: [claims[0]] }];
 
   // Sort by timestamp
   const sorted = [...claims].sort((a, b) => a.timestamp - b.timestamp);
-  const filtered = [sorted[0]]; // Always keep first claim
+  const groups = [];
+  let currentGroup = [sorted[0]];
 
   for (let i = 1; i < sorted.length; i++) {
     const currentClaim = sorted[i];
-    const lastKeptClaim = filtered[filtered.length - 1];
+    const lastClaimInGroup = currentGroup[currentGroup.length - 1];
 
-    // Keep claim if it's at least minSpacing seconds after the last kept claim
-    if (currentClaim.timestamp - lastKeptClaim.timestamp >= minSpacing) {
-      filtered.push(currentClaim);
+    // If current claim is within maxSpacing seconds of the last claim in the group, add it to the group
+    if (currentClaim.timestamp - lastClaimInGroup.timestamp < maxSpacing) {
+      currentGroup.push(currentClaim);
+      console.log(`📍 Grouping claim at ${currentClaim.timestamp}s with claim at ${lastClaimInGroup.timestamp}s`);
     } else {
-      console.log(`⏭️  Skipping claim at ${currentClaim.timestamp}s (too close to claim at ${lastKeptClaim.timestamp}s)`);
+      // Start a new group
+      groups.push({
+        timestamp: currentGroup[0].timestamp, // Use earliest timestamp in group
+        claims: currentGroup,
+      });
+      currentGroup = [currentClaim];
     }
   }
 
-  return filtered;
+  // Don't forget the last group
+  if (currentGroup.length > 0) {
+    groups.push({
+      timestamp: currentGroup[0].timestamp,
+      claims: currentGroup,
+    });
+  }
+
+  return groups;
 }
+
 

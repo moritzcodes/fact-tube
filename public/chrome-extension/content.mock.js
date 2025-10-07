@@ -154,10 +154,12 @@ YouTubeFactChecker.prototype.handleAnalysisComplete = function(result) {
 
         console.log('Processed fact-check data:', this.mockFactChecks.length, 'claims');
 
-        // Load or create grouping data
+        // IMPROVED: Pre-load grouping data (will be used later when video is ready)
+        // This prepares grouping without needing video.duration
         this.loadOrCreateGrouping();
 
-        // Create timeline markers with real data
+        // Create timeline markers - has built-in retry logic if video isn't ready
+        // Will wait for video metadata if needed
         this.createTimelineMarkers();
 
         // Create summary for logging
@@ -208,6 +210,7 @@ YouTubeFactChecker.prototype.createSummaryFromClaims = function() {
 /**
  * Load or create grouping data for timeline markers
  * Persists grouping information across page reloads
+ * IMPROVED: Uses absolute time-based spacing and relaxed validation
  */
 YouTubeFactChecker.prototype.loadOrCreateGrouping = function() {
     const videoId = this.extractVideoIdFromUrl(window.location.href);
@@ -221,31 +224,55 @@ YouTubeFactChecker.prototype.loadOrCreateGrouping = function() {
 
         if (storedData) {
             const parsed = JSON.parse(storedData);
-            // Validate that stored data matches current claims
-            if (parsed.claimCount === this.mockFactChecks.length && parsed.grouping) {
-                console.log('📦 Loaded stored grouping data:', parsed.grouping.length, 'groups');
+            // Relaxed validation - allow ±2 claims difference to handle minor updates
+            const claimDiff = Math.abs(parsed.claimCount - this.mockFactChecks.length);
+
+            // Check if version is current (v4 = pixel-based)
+            const isCurrentVersion = parsed.version === 4;
+
+            // Validate progress bar width (should be reasonable)
+            const hasValidWidth = parsed.progressBarWidth && parsed.progressBarWidth >= 400 && parsed.progressBarWidth <= 2000;
+
+            // Check current progress bar width hasn't changed significantly
+            const progressContainer = document.querySelector('.ytp-progress-bar-container') || document.querySelector('.ytp-progress-bar');
+            const currentWidth = progressContainer ? progressContainer.offsetWidth : 800;
+            const widthDiff = Math.abs(currentWidth - (parsed.progressBarWidth || 800));
+            const widthChanged = widthDiff > 50; // Allow 50px difference
+
+            if (claimDiff <= 2 && parsed.grouping && parsed.grouping.length > 0 && isCurrentVersion && hasValidWidth && !widthChanged) {
+                console.log('📦 Loaded stored grouping data:', parsed.grouping.length, 'groups (claim diff:', claimDiff, ', width:', parsed.progressBarWidth + 'px)');
                 this.markerGrouping = parsed.grouping;
                 return;
             } else {
-                console.log('⚠️ Stored grouping data outdated, recreating...');
+                console.log('⚠️ Stored grouping data outdated, recreating... (claim diff:', claimDiff, ', version:', parsed.version, ', width change:', widthDiff + 'px)');
             }
         }
     } catch (error) {
         console.warn('⚠️ Error loading grouping data:', error);
     }
 
-    // Create new grouping if no valid stored data exists
-    console.log('🆕 Creating new grouping data...');
-    const video = document.querySelector('video');
-    if (!video || !video.duration) {
-        console.warn('⚠️ Cannot create grouping - video not ready');
-        this.markerGrouping = null;
-        return;
-    }
+    // Create new grouping using PIXEL-BASED clustering
+    console.log('🆕 Creating new grouping data with pixel-based clustering...');
 
-    const videoDuration = video.duration;
-    const minVisualSpacing = videoDuration * 0.02; // 2% of video duration
-    const groups = this.groupClaimsByProximity(this.mockFactChecks, minVisualSpacing);
+    // Get video duration and progress bar width
+    const video = document.querySelector('video');
+    const progressContainer = document.querySelector('.ytp-progress-bar-container') ||
+        document.querySelector('.ytp-progress-bar');
+
+    const videoDuration = video ? video.duration : 0;
+    const progressBarWidth = progressContainer ? progressContainer.offsetWidth : 800; // fallback to 800px
+
+    let groups;
+
+    if (videoDuration > 0 && progressBarWidth > 0) {
+        // Use pixel-based visual spacing
+        groups = this.groupClaimsByVisualSpacing(this.mockFactChecks, videoDuration, progressBarWidth);
+        console.log(`📏 Using pixel-based clustering: ${progressBarWidth}px timeline, ${videoDuration.toFixed(0)}s video`);
+    } else {
+        // Fallback to time-based if video not ready
+        groups = this.groupClaimsByTimeSpacing(this.mockFactChecks, videoDuration || 600);
+        console.log(`⚠️ Using time-based fallback (video not ready)`);
+    }
 
     // Store grouping data
     this.markerGrouping = groups;
@@ -255,9 +282,12 @@ YouTubeFactChecker.prototype.loadOrCreateGrouping = function() {
         localStorage.setItem(storageKey, JSON.stringify({
             claimCount: this.mockFactChecks.length,
             grouping: groups,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            version: 4, // v4: Pixel-based visual clustering
+            progressBarWidth: progressBarWidth,
+            algorithm: 'pixel-based-gap-analysis'
         }));
-        console.log('💾 Saved grouping data to localStorage');
+        console.log('💾 Saved grouping data to localStorage:', groups.length, 'groups');
     } catch (error) {
         console.warn('⚠️ Error saving grouping data:', error);
     }
@@ -279,11 +309,13 @@ YouTubeFactChecker.prototype.clearStoredGrouping = function() {
 /**
  * Clean up old grouping data from localStorage (older than 7 days)
  * Prevents localStorage bloat from accumulating old video data
+ * IMPROVED: Also removes outdated versions
  */
 YouTubeFactChecker.prototype.cleanupOldGroupingData = function() {
     try {
         const now = Date.now();
         const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+        const currentVersion = 4; // v4: Pixel-based visual clustering
         const keysToRemove = [];
 
         // Scan through localStorage for grouping keys
@@ -292,7 +324,14 @@ YouTubeFactChecker.prototype.cleanupOldGroupingData = function() {
             if (key && key.startsWith('grouping_')) {
                 try {
                     const data = JSON.parse(localStorage.getItem(key));
-                    if (data && data.timestamp && (now - data.timestamp) > maxAge) {
+
+                    // Remove if: old (>7 days), outdated version, or invalid
+                    if (!data) {
+                        keysToRemove.push(key);
+                    } else if (data.timestamp && (now - data.timestamp) > maxAge) {
+                        keysToRemove.push(key);
+                    } else if (data.version && data.version < currentVersion) {
+                        console.log('🔄 Removing outdated grouping version:', key, 'v' + data.version);
                         keysToRemove.push(key);
                     }
                 } catch (e) {
@@ -348,23 +387,53 @@ YouTubeFactChecker.prototype.createTimelineMarkers = function() {
     // Get video duration to calculate marker positions
     const video = document.querySelector('video');
     if (!video || !video.duration) {
-        setTimeout(() => this.createTimelineMarkers(), 1000);
+        console.log('⏳ Video metadata not ready, waiting for loadedmetadata event...');
+
+        // Set up one-time listener for metadata load
+        const retryOnMetadata = () => {
+            console.log('✅ Video metadata loaded, creating timeline markers...');
+            video.removeEventListener('loadedmetadata', retryOnMetadata);
+            this.createTimelineMarkers();
+        };
+
+        if (video) {
+            video.addEventListener('loadedmetadata', retryOnMetadata);
+        }
+
+        // Also add a timeout fallback in case event doesn't fire
+        setTimeout(() => {
+            if (video && video.duration) {
+                video.removeEventListener('loadedmetadata', retryOnMetadata);
+                this.createTimelineMarkers();
+            }
+        }, 2000);
+
         return;
     }
 
     const videoDuration = video.duration;
 
-    // Use stored grouping data if available, otherwise create new grouping
-    let markerGroups;
-    if (this.markerGrouping && this.markerGrouping.length > 0) {
-        console.log('📦 Using stored marker grouping:', this.markerGrouping.length, 'groups');
-        markerGroups = this.markerGrouping;
-    } else {
-        // Fallback: Create new grouping if none exists
-        console.log('🆕 Creating new marker grouping (fallback)...');
-        const minVisualSpacing = videoDuration * 0.02; // 2% of video duration
-        markerGroups = this.groupClaimsByProximity(this.mockFactChecks, minVisualSpacing);
-        this.markerGrouping = markerGroups;
+    // Ensure grouping exists (create if needed)
+    if (!this.markerGrouping || this.markerGrouping.length === 0) {
+        console.log('🆕 No grouping data, creating now...');
+        this.loadOrCreateGrouping();
+    }
+
+    // Use stored grouping data
+    let markerGroups = this.markerGrouping;
+
+    // Final fallback if grouping still doesn't exist
+    if (!markerGroups || markerGroups.length === 0) {
+        console.warn('⚠️ Grouping creation failed, using fallback clustering...');
+
+        // Get progress bar width for pixel-based clustering
+        const progressBarWidth = progressContainer ? progressContainer.offsetWidth : 800;
+
+        if (videoDuration > 0 && progressBarWidth > 0) {
+            markerGroups = this.groupClaimsByVisualSpacing(this.mockFactChecks, videoDuration, progressBarWidth);
+        } else {
+            markerGroups = this.groupClaimsByTimeSpacing(this.mockFactChecks, videoDuration || 600);
+        }
     }
 
     console.log(`📍 Creating ${markerGroups.length} marker groups from ${this.mockFactChecks.length} claims`);
@@ -385,9 +454,10 @@ YouTubeFactChecker.prototype.createTimelineMarkers = function() {
 };
 
 /**
- * Group claims that are too close together visually
+ * IMPROVED: Pixel-based intelligent clustering with gap analysis
+ * Groups claims based on actual visual spacing on timeline, not just time
  */
-YouTubeFactChecker.prototype.groupClaimsByProximity = function(claims, minSpacing) {
+YouTubeFactChecker.prototype.groupClaimsByVisualSpacing = function(claims, videoDuration, progressBarWidth) {
     if (claims.length <= 1) {
         return claims.map((claim, index) => ({
             claims: [{...claim, index }],
@@ -395,7 +465,86 @@ YouTubeFactChecker.prototype.groupClaimsByProximity = function(claims, minSpacin
         }));
     }
 
-    // Sort by timestamp and add indices
+    // Constants for visual spacing
+    const MIN_PIXEL_SPACING = 20; // Minimum 20px between markers
+    const MARKER_WIDTH = 14; // Marker width in pixels
+
+    // Sort by timestamp and add indices + pixel positions
+    const sorted = claims.map((claim, index) => ({
+        ...claim,
+        index,
+        pixelPosition: (claim.timestamp / videoDuration) * progressBarWidth
+    })).sort((a, b) => a.timestamp - b.timestamp);
+
+    // Calculate gaps between consecutive claims
+    const gaps = [];
+    for (let i = 0; i < sorted.length - 1; i++) {
+        const pixelGap = sorted[i + 1].pixelPosition - sorted[i].pixelPosition;
+        gaps.push({
+            index: i,
+            pixelGap: pixelGap,
+            hasVisualSpace: pixelGap >= MIN_PIXEL_SPACING
+        });
+    }
+
+    // Find natural breakpoints (where there's enough visual space)
+    const breakpoints = new Set();
+    gaps.forEach(gap => {
+        if (gap.hasVisualSpace) {
+            breakpoints.add(gap.index);
+        }
+    });
+
+    // Create clusters based on breakpoints
+    const clusters = [];
+    let currentCluster = [sorted[0]];
+
+    for (let i = 1; i < sorted.length; i++) {
+        if (breakpoints.has(i - 1)) {
+            // Natural breakpoint - enough visual space
+            clusters.push({
+                claims: currentCluster,
+                timestamp: currentCluster[0].timestamp
+            });
+            currentCluster = [sorted[i]];
+        } else {
+            // No visual space - add to current cluster
+            currentCluster.push(sorted[i]);
+        }
+    }
+
+    // Add last cluster
+    clusters.push({
+        claims: currentCluster,
+        timestamp: currentCluster[0].timestamp
+    });
+
+    console.log(`🎯 Pixel-based clustering: ${claims.length} claims → ${clusters.length} groups`);
+    console.log(`📏 Progress bar: ${progressBarWidth}px, Min spacing: ${MIN_PIXEL_SPACING}px`);
+
+    return clusters;
+};
+
+/**
+ * LEGACY: Time-based grouping (fallback for when progressBar width unavailable)
+ * Only used as emergency fallback
+ */
+YouTubeFactChecker.prototype.groupClaimsByTimeSpacing = function(claims, videoDuration) {
+    if (claims.length <= 1) {
+        return claims.map((claim, index) => ({
+            claims: [{...claim, index }],
+            timestamp: claim.timestamp
+        }));
+    }
+
+    // Estimate: assume 800px timeline, calculate equivalent time for 20px
+    const estimatedWidth = 800;
+    const minPixelSpacing = 20;
+    const minTimeSpacing = (minPixelSpacing / estimatedWidth) * videoDuration;
+
+    console.log(`⚠️ Using time-based fallback: ${minTimeSpacing.toFixed(1)}s spacing`);
+
+    // Sort and group
     const sorted = claims.map((claim, index) => ({...claim, index }))
         .sort((a, b) => a.timestamp - b.timestamp);
 
@@ -404,21 +553,18 @@ YouTubeFactChecker.prototype.groupClaimsByProximity = function(claims, minSpacin
 
     for (let i = 1; i < sorted.length; i++) {
         const claim = sorted[i];
-        const lastClaim = currentGroup.claims[currentGroup.claims.length - 1];
+        const firstInGroup = currentGroup.claims[0]; // Compare to FIRST, not last!
 
-        // If claim is within minSpacing of last claim in group, add to group
-        if (claim.timestamp - lastClaim.timestamp < minSpacing) {
+        // Only group if within threshold of the FIRST claim in group
+        if (claim.timestamp - firstInGroup.timestamp < minTimeSpacing) {
             currentGroup.claims.push(claim);
         } else {
-            // Start new group
             groups.push(currentGroup);
             currentGroup = { claims: [claim], timestamp: claim.timestamp };
         }
     }
 
-    // Add last group
     groups.push(currentGroup);
-
     return groups;
 };
 
@@ -527,22 +673,22 @@ YouTubeFactChecker.prototype.createGroupMarker = function(group, groupIndex, pro
     marker.setAttribute('data-group-index', groupIndex);
     marker.setAttribute('data-claim-count', group.claims.length);
 
-    // Use average position of all claims in group
-    const avgTimestamp = group.claims.reduce((sum, c) => sum + c.timestamp, 0) / group.claims.length;
-    const position = (avgTimestamp / videoDuration) * 100;
+    // Use first claim's timestamp (earliest in group)
+    const position = (group.timestamp / videoDuration) * 100;
 
+    // SAME DESIGN AS SINGLE MARKERS - only difference is the count badge
     marker.style.cssText = `
       position: absolute;
       top: -16px;
       left: ${position}%;
-      width: 18px;
-      height: 18px;
+      width: 14px;
+      height: 14px;
       border-radius: 50%;
       cursor: pointer;
       z-index: 1000;
       opacity: 0.95;
       transition: all 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
-      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 0 4px 12px rgba(255, 255, 255, 0.3);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4), 0 4px 12px rgba(255, 255, 255, 0.25);
       transform: translateX(-50%);
       overflow: hidden;
       pointer-events: auto;
@@ -561,12 +707,14 @@ YouTubeFactChecker.prototype.createGroupMarker = function(group, groupIndex, pro
       pointer-events: none;
     `;
 
-    // Mix colors based on statuses in group
+    // Use first claim's status for color (or mix if you prefer)
+    const firstClaim = group.claims[0];
+    const timelineCategory = this.mapStatusToTimelineCategory(firstClaim.status);
     const tint = document.createElement('div');
     tint.className = 'liquidGlass-tint';
     tint.style.cssText = `
       z-index: 1; position: absolute; inset: 0; border-radius: inherit; 
-      background: linear-gradient(135deg, #60A5FA70, #A78BFA70);
+      background: ${this.getCategoryColor(timelineCategory)}70;
       pointer-events: none;
     `;
 
@@ -595,26 +743,28 @@ YouTubeFactChecker.prototype.createGroupMarker = function(group, groupIndex, pro
     marker.appendChild(shine);
     marker.appendChild(badge);
 
-    // Add hover effects
+    // Add hover effects - SAME AS SINGLE MARKERS
     marker.addEventListener('mouseenter', () => {
+        const timelineCategory = this.mapStatusToTimelineCategory(firstClaim.status);
         marker.style.opacity = '1';
-        marker.style.width = '24px';
-        marker.style.height = '24px';
+        marker.style.width = '20px';
+        marker.style.height = '20px';
         marker.style.top = '-24px';
         marker.style.transform = 'translateX(-50%) scale(1.15)';
-        marker.style.boxShadow = `0 0 0 2px rgba(255, 255, 255, 0.7), 
-                                 0 8px 24px rgba(255, 255, 255, 0.5)`;
+        marker.style.boxShadow = `0 0 0 2px rgba(255, 255, 255, 0.6), 
+                                 0 8px 24px rgba(255, 255, 255, 0.4),
+                                 0 0 20px ${this.getCategoryColor(timelineCategory)}60`;
         marker.style.zIndex = '1001';
         this.showGroupTooltip(marker, group);
     });
 
     marker.addEventListener('mouseleave', () => {
         marker.style.opacity = '0.95';
-        marker.style.width = '18px';
-        marker.style.height = '18px';
+        marker.style.width = '14px';
+        marker.style.height = '14px';
         marker.style.top = '-16px';
         marker.style.transform = 'translateX(-50%) scale(1)';
-        marker.style.boxShadow = `0 0 0 1px rgba(255, 255, 255, 0.5), 0 4px 12px rgba(255, 255, 255, 0.3)`;
+        marker.style.boxShadow = `0 0 0 1px rgba(255, 255, 255, 0.4), 0 4px 12px rgba(255, 255, 255, 0.25)`;
         marker.style.zIndex = '1000';
         this.hideTimelineTooltip();
     });

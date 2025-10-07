@@ -106,13 +106,56 @@ YouTubeFactChecker.prototype.loadData = function(data) {
         console.log('✅ Data loaded. Found', this.mockFactChecks.length, 'claims');
         console.log('📊 Summary:', summary);
     } else if (data.claims && data.claims.length > 0) {
-        // Fallback: if data comes in different format, use as-is
-        this.mockFactChecks = data.claims;
+        // NEW: Handle grouped claims format from analyze-video endpoint
+        console.log('📦 Processing claims from API...', data.claims);
 
-        // Create timeline markers with real data
+        // Flatten grouped claims into individual claims
+        let allClaims = [];
+        data.claims.forEach(group => {
+            if (group.claims && group.claims.length > 0) {
+                // This is a group with multiple claims
+                group.claims.forEach(claim => {
+                    allClaims.push({
+                        timestamp: claim.timestamp,
+                        claim: claim.claim,
+                        speaker: claim.speaker || 'Unknown',
+                        status: claim.status || 'pending',
+                        sources: claim.sources || [],
+                        evidence: claim.evidence || [],
+                        sourceBias: claim.sourceBias || null,
+                        verdict: claim.verdict || '',
+                        judgement: {
+                            reasoning: claim.verdict || 'Analysis in progress...',
+                            summary: claim.verdict ? claim.verdict.split('.')[0] + '.' : 'Pending analysis'
+                        }
+                    });
+                });
+            } else {
+                // Single claim (not grouped) - backward compatibility
+                allClaims.push({
+                    timestamp: group.timestamp,
+                    claim: group.claim,
+                    speaker: group.speaker || 'Unknown',
+                    status: group.status || 'pending',
+                    sources: group.sources || [],
+                    evidence: group.evidence || [],
+                    sourceBias: group.sourceBias || null,
+                    verdict: group.verdict || '',
+                    judgement: {
+                        reasoning: group.verdict || 'Analysis in progress...',
+                        summary: group.verdict ? group.verdict.split('.')[0] + '.' : 'Pending analysis'
+                    }
+                });
+            }
+        });
+
+        this.mockFactChecks = allClaims;
+        console.log('✅ Processed', data.claims.length, 'marker groups containing', allClaims.length, 'total claims');
+
+        // Create timeline markers with real data (extension will handle its own grouping for display)
         this.createTimelineMarkers();
 
-        console.log('✅ Data loaded. Found', data.claims.length, 'claims');
+        console.log('✅ Data loaded. Found', allClaims.length, 'claims');
     }
 
     this.isAnalysisInProgress = false;

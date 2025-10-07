@@ -755,14 +755,14 @@ YouTubeFactChecker.prototype._createSourcesSection = function(factCheckData) {
             ${total > 1 ? `
             <div style="margin-bottom: 8px;">
                 <div style="display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: rgba(255,255,255,0.1);">
-                    ${leftPercent > 0 ? `<div style="width: ${leftPercent}%; background: linear-gradient(90deg, #ef4444, #dc2626); opacity: 0.85;" title="Left: ${leftPercent}%"></div>` : ''}
-                    ${centerPercent > 0 ? `<div style="width: ${centerPercent}%; background: linear-gradient(90deg, #9ca3af, #6b7280); opacity: 0.85;" title="Center: ${centerPercent}%"></div>` : ''}
-                    ${rightPercent > 0 ? `<div style="width: ${rightPercent}%; background: linear-gradient(90deg, #3b82f6, #2563eb); opacity: 0.85;" title="Right: ${rightPercent}%"></div>` : ''}
+                    ${leftPercent > 0 ? `<div style="width: ${leftPercent}%; background: linear-gradient(90deg, #3b82f6, #2563eb); opacity: 0.85;" title="Left: ${leftPercent}%"></div>` : ''}
+                    ${centerPercent > 0 ? `<div style="width: ${centerPercent}%; background: linear-gradient(90deg, #10b981, #059669); opacity: 0.85;" title="Center: ${centerPercent}%"></div>` : ''}
+                    ${rightPercent > 0 ? `<div style="width: ${rightPercent}%; background: linear-gradient(90deg, #ef4444, #dc2626); opacity: 0.85;" title="Right: ${rightPercent}%"></div>` : ''}
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-top: 2px; font-size: 8px; opacity: 0.6;">
-                    <span>L ${leftPercent}%</span>
-                    <span>C ${centerPercent}%</span>
-                    <span>R ${rightPercent}%</span>
+                    <span>LEFT ${leftPercent}%</span>
+                    <span>CENTER ${centerPercent}%</span>
+                    <span>RIGHT ${rightPercent}%</span>
                 </div>
             </div>
             ` : ''}
@@ -770,11 +770,11 @@ YouTubeFactChecker.prototype._createSourcesSection = function(factCheckData) {
             <!-- Source links -->
             <div style="font-size: 10px; opacity: 0.8; line-height: 1.2; display: flex; flex-wrap: wrap; gap: 4px;">
                 ${displaySources.map((source, index) => {
-                    const biasColor = source.bias === 'left' ? 'rgba(239, 68, 68, 0.3)' : 
-                                      source.bias === 'right' ? 'rgba(59, 130, 246, 0.3)' : 
+                    const biasColor = source.bias === 'right' ? 'rgba(239, 68, 68, 0.3)' : 
+                                      source.bias === 'left' ? 'rgba(59, 130, 246, 0.3)' : 
                                       'rgba(156, 163, 175, 0.3)';
-                    const biasBorder = source.bias === 'left' ? 'rgba(239, 68, 68, 0.5)' : 
-                                       source.bias === 'right' ? 'rgba(59, 130, 246, 0.5)' : 
+                    const biasBorder = source.bias === 'right' ? 'rgba(239, 68, 68, 0.5)' : 
+                                       source.bias === 'left' ? 'rgba(59, 130, 246, 0.5)' : 
                                        'rgba(156, 163, 175, 0.5)';
                     return `
                     <a href="${source.url}" 
