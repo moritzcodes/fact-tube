@@ -12,14 +12,18 @@ import { claims } from '@/lib/db/schema';
  * Processes transcript chunks and returns extracted claims immediately
  */
 
-const openai = new OpenAI({
-  baseURL: 'https://openrouter.ai/api/v1',
-  apiKey: env.OPENROUTER_API_KEY,
-  defaultHeaders: {
-    'HTTP-Referer': 'https://fact-tube.app',
-    'X-Title': 'FactTube',
-  },
-});
+// Create OpenAI client only if API key is available
+let openai: OpenAI | null = null;
+if (env.OPENROUTER_API_KEY) {
+  openai = new OpenAI({
+    baseURL: 'https://openrouter.ai/api/v1',
+    apiKey: env.OPENROUTER_API_KEY,
+    defaultHeaders: {
+      'HTTP-Referer': 'https://fact-tube.app',
+      'X-Title': 'FactTube',
+    },
+  });
+}
 
 // CORS headers for Chrome Extension
 const corsHeaders = {
@@ -45,6 +49,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'videoId and segments array are required' },
         { status: 400, headers: corsHeaders }
+      );
+    }
+
+    if (!openai) {
+      return NextResponse.json(
+        { error: 'OpenRouter API key is required. Please configure it in the extension settings.' },
+        { status: 401, headers: corsHeaders }
       );
     }
 

@@ -46,6 +46,11 @@ async function analyzeSourceCoverage(url: string, claim: string): Promise<'left'
   
   // For other sources, analyze their coverage in context
   try {
+    if (!env.OPENROUTER_API_KEY) {
+      console.warn('⚠️ No OpenRouter API key available for source analysis');
+      return 'center';
+    }
+
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -243,6 +248,18 @@ async function selectBestSources(
  */
 export async function factCheckClaim(claim: Claim): Promise<FactCheckResult> {
   try {
+    if (!env.OPENROUTER_API_KEY) {
+      console.warn('⚠️ No OpenRouter API key available for fact-checking');
+      return {
+        claimId: claim.id,
+        status: 'inconclusive',
+        verdict: 'Unable to fact-check: API key not configured',
+        sources: [],
+        sourceBias: null,
+        written_summary: 'Fact-checking requires an OpenRouter API key to be configured.',
+      };
+    }
+
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {

@@ -8,14 +8,17 @@ import { processClaimFactCheck } from '@/lib/workers/fact-checker';
 /**
  * OpenRouter client configured with GPT-4o-mini for claim extraction
  */
-const openai = new OpenAI({
-  baseURL: 'https://openrouter.ai/api/v1',
-  apiKey: env.OPENROUTER_API_KEY,
-  defaultHeaders: {
-    'HTTP-Referer': 'https://fact-tube.app',
-    'X-Title': 'FactTube',
-  },
-});
+let openai: OpenAI | null = null;
+if (env.OPENROUTER_API_KEY) {
+  openai = new OpenAI({
+    baseURL: 'https://openrouter.ai/api/v1',
+    apiKey: env.OPENROUTER_API_KEY,
+    defaultHeaders: {
+      'HTTP-Referer': 'https://fact-tube.app',
+      'X-Title': 'FactTube',
+    },
+  });
+}
 
 /**
  * AI processing router - handles claim extraction from transcript segments
@@ -37,6 +40,10 @@ export const aiRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       try {
+        if (!openai) {
+          throw new Error('OpenRouter API key is required for claim extraction. Please configure it in the extension settings.');
+        }
+
         // Prepare the transcript text with timestamps
         const transcriptText = input.segments
           .map(seg => `[${Math.floor(seg.start)}s] ${seg.text}`)
@@ -172,8 +179,12 @@ If no significant fact-checkable claims exist, return: {"claims": []}`,
       }).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      if (!openai) {
+        throw new Error('OpenRouter API key is required for claim extraction. Please configure it in the extension settings.');
+      }
+
       const results = [];
-      
+
       for (const chunk of input.segmentChunks) {
         try {
           const transcriptText = chunk

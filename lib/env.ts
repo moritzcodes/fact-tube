@@ -17,7 +17,7 @@ export const env = {
   DATABASE_URL: getEnv('DATABASE_URL'),
   NODE_ENV: getEnv('NODE_ENV', 'development'),
   VERCEL_URL: process.env.VERCEL_URL,
-  OPENROUTER_API_KEY: getEnv('OPENROUTER_API_KEY'), // For claim extraction and fact-checking via Perplexity Sonar
+  OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY, // Optional - users can provide their own via extension settings
 } as const;
 
 
