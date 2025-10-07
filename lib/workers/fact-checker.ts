@@ -15,10 +15,12 @@ interface SourceWithBias {
 }
 
 interface FactCheckResult {
+  claimId?: string;
   status: 'verified' | 'false' | 'disputed' | 'inconclusive';
   verdict: string;
   sources: string[];
   sourcesWithBias?: SourceWithBias[];
+  written_summary?: string;
 }
 
 /**
@@ -255,7 +257,7 @@ export async function factCheckClaim(claim: Claim): Promise<FactCheckResult> {
         status: 'inconclusive',
         verdict: 'Unable to fact-check: API key not configured',
         sources: [],
-        sourceBias: null,
+        sourcesWithBias: [],
         written_summary: 'Fact-checking requires an OpenRouter API key to be configured.',
       };
     }
@@ -364,6 +366,7 @@ Remember: Start your verdict with "Yes" or "No" and include the key facts. Be di
     const selectedSources = await selectBestSources(allSources, claim.claim, 3);
     result.sources = selectedSources.urls;
     result.sourcesWithBias = selectedSources.sourcesWithBias;
+    result.claimId = claim.id;
 
     return result;
   } catch (error) {
@@ -371,9 +374,12 @@ Remember: Start your verdict with "Yes" or "No" and include the key facts. Be di
     
     // If there's an error, return inconclusive
     return {
+      claimId: claim.id,
       status: 'inconclusive',
       verdict: 'Unable to verify this claim due to a technical error during fact-checking.',
       sources: [],
+      sourcesWithBias: [],
+      written_summary: 'Fact-checking failed due to a technical error.',
     };
   }
 }
