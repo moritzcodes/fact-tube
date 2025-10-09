@@ -16,7 +16,6 @@ function isExtensionContextValid() {
  */
 function safeSendMessage(message, callback) {
     if (!isExtensionContextValid()) {
-        console.warn('⚠️ Extension context invalidated. Please reload the page.');
         return;
     }
 

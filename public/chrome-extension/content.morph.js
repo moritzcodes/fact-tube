@@ -227,10 +227,12 @@ YouTubeFactChecker.prototype.createAnalyzeButton = function() {
         font-size: 24px; font-weight: 600; transition: all 0.2s ease;
     `;
 
-    console.log('🔄 Updating button state...');
-    this.updateButtonState();
+    // Add button to DOM first, then update its state
     this.activeIndicator.appendChild(buttonContent);
     console.log('✅ Button content added to indicator');
+
+    console.log('🔄 Updating button state...');
+    this.updateButtonState();
 };
 
 YouTubeFactChecker.prototype.updateButtonState = function() {

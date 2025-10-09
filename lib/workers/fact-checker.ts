@@ -27,9 +27,9 @@ interface FactCheckResult {
  * Analyze HOW a source covered a specific claim/topic
  * This is context-aware: the same publication might lean different directions on different topics
  */
-async function analyzeSourceCoverage(url: string, claim: string): Promise<'left' | 'center' | 'right'> {
+async function analyzeSourceCoverage(url: string, claim: string, apiKey?: string): Promise<'left' | 'center' | 'right'> {
   const domain = new URL(url).hostname.toLowerCase();
-  
+
   // Fast path: Known definitively neutral sources
   // These are institutionally neutral regardless of topic
   const definitiveCenter = [
@@ -39,16 +39,18 @@ async function analyzeSourceCoverage(url: string, claim: string): Promise<'left'
     'factcheck.org', 'snopes.com', 'politifact.com', 'fullfact.org',
     'reuters.com', 'apnews.com', 'bbc.com', 'bbc.co.uk' // Wire services & public broadcasters
   ];
-  
+
   for (const source of definitiveCenter) {
     if (domain.includes(source)) {
       return 'center';
     }
   }
-  
+
   // For other sources, analyze their coverage in context
   try {
-    if (!env.OPENROUTER_API_KEY) {
+    const effectiveApiKey = apiKey || env.OPENROUTER_API_KEY;
+
+    if (!effectiveApiKey) {
       console.warn('⚠️ No OpenRouter API key available for source analysis');
       return 'center';
     }
@@ -56,7 +58,7 @@ async function analyzeSourceCoverage(url: string, claim: string): Promise<'left'
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`,
+        'Authorization': `Bearer ${effectiveApiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': process.env.VERCEL_URL || 'http://localhost:3000',
         'X-Title': 'Fact-Tube',
@@ -201,9 +203,10 @@ function getSourcePriority(url: string): number {
  * Analyzes how each source covered this specific claim
  */
 async function selectBestSources(
-  sources: string[], 
-  claim: string, 
-  maxCount: number = 3
+  sources: string[],
+  claim: string,
+  maxCount: number = 3,
+  apiKey?: string
 ): Promise<{ urls: string[], sourcesWithBias: SourceWithBias[] }> {
   // Remove duplicates and invalid URLs
   const validSources = [...new Set(sources)].filter(url => {
@@ -235,7 +238,7 @@ async function selectBestSources(
     topSources.map(async (s) => ({
       url: s.url,
       domain: s.domain,
-      bias: await analyzeSourceCoverage(s.url, claim)
+      bias: await analyzeSourceCoverage(s.url, claim, apiKey)
     }))
   );
   
@@ -248,9 +251,11 @@ async function selectBestSources(
 /**
  * Fact-check a single claim using Perplexity Sonar via OpenRouter
  */
-export async function factCheckClaim(claim: Claim): Promise<FactCheckResult> {
+export async function factCheckClaim(claim: Claim, apiKey?: string): Promise<FactCheckResult> {
   try {
-    if (!env.OPENROUTER_API_KEY) {
+    const effectiveApiKey = apiKey || env.OPENROUTER_API_KEY;
+
+    if (!effectiveApiKey) {
       console.warn('⚠️ No OpenRouter API key available for fact-checking');
       return {
         claimId: claim.id,
@@ -265,7 +270,7 @@ export async function factCheckClaim(claim: Claim): Promise<FactCheckResult> {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${env.OPENROUTER_API_KEY}`,
+        'Authorization': `Bearer ${effectiveApiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': process.env.VERCEL_URL || 'http://localhost:3000',
         'X-Title': 'Fact-Tube',
@@ -363,7 +368,7 @@ Remember: Start your verdict with "Yes" or "No" and include the key facts. Be di
     
     // Filter and prioritize sources (limit to top 3 highest quality)
     // Analyze how each source covered this specific claim
-    const selectedSources = await selectBestSources(allSources, claim.claim, 3);
+    const selectedSources = await selectBestSources(allSources, claim.claim, 3, effectiveApiKey);
     result.sources = selectedSources.urls;
     result.sourcesWithBias = selectedSources.sourcesWithBias;
     result.claimId = claim.id;
@@ -387,7 +392,7 @@ Remember: Start your verdict with "Yes" or "No" and include the key facts. Be di
 /**
  * Process a single claim and update the database
  */
-export async function processClaimFactCheck(claimId: string): Promise<void> {
+export async function processClaimFactCheck(claimId: string, apiKey?: string): Promise<void> {
   try {
     // Get the claim
     const result = await db
@@ -410,7 +415,7 @@ export async function processClaimFactCheck(claimId: string): Promise<void> {
     console.log(`Fact-checking claim ${claimId}: "${claim.claim}"`);
 
     // Fact-check the claim
-    const factCheckResult = await factCheckClaim(claim);
+    const factCheckResult = await factCheckClaim(claim, apiKey);
 
     // Update the claim in the database
     await db
@@ -433,7 +438,7 @@ export async function processClaimFactCheck(claimId: string): Promise<void> {
 /**
  * Process all pending claims in the database
  */
-export async function processAllPendingClaims(): Promise<void> {
+export async function processAllPendingClaims(apiKey?: string): Promise<void> {
   try {
     const pendingClaims = await db
       .select()
@@ -444,8 +449,8 @@ export async function processAllPendingClaims(): Promise<void> {
 
     // Process claims sequentially to avoid rate limiting
     for (const claim of pendingClaims) {
-      await processClaimFactCheck(claim.id);
-      
+      await processClaimFactCheck(claim.id, apiKey);
+
       // Add a small delay between requests to respect rate limits
       await new Promise(resolve => setTimeout(resolve, 1000));
     }

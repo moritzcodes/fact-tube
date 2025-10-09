@@ -275,7 +275,7 @@ If no significant fact-checkable claims exist, return: {"claims": []}`,
             allClaims.push(result[0]);
 
             // Trigger fact-checking in background
-            processClaimFactCheck(result[0].id).catch((error) => {
+            processClaimFactCheck(result[0].id, apiKey).catch((error) => {
               console.error(`Error triggering fact-check for claim ${result[0].id}:`, error);
             });
           }

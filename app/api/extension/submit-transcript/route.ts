@@ -12,18 +12,7 @@ import { claims } from '@/lib/db/schema';
  * Processes transcript chunks and returns extracted claims immediately
  */
 
-// Create OpenAI client only if API key is available
-let openai: OpenAI | null = null;
-if (env.OPENROUTER_API_KEY) {
-  openai = new OpenAI({
-    baseURL: 'https://openrouter.ai/api/v1',
-    apiKey: env.OPENROUTER_API_KEY,
-    defaultHeaders: {
-      'HTTP-Referer': 'https://fact-tube.app',
-      'X-Title': 'FactTube',
-    },
-  });
-}
+// OpenAI client is now created per-request with the appropriate API key
 
 // CORS headers for Chrome Extension
 const corsHeaders = {
@@ -53,12 +42,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!openai) {
+    // Get API key from header or environment variable
+    const customApiKey = request.headers.get('X-OpenRouter-API-Key');
+    const apiKey = customApiKey || env.OPENROUTER_API_KEY;
+
+    if (!apiKey) {
       return NextResponse.json(
         { error: 'OpenRouter API key is required. Please configure it in the extension settings.' },
         { status: 401, headers: corsHeaders }
       );
     }
+
+    // Create OpenAI client with the appropriate API key
+    const openaiClient = new OpenAI({
+      baseURL: 'https://openrouter.ai/api/v1',
+      apiKey: apiKey,
+      defaultHeaders: {
+        'HTTP-Referer': 'https://fact-tube.app',
+        'X-Title': 'FactTube',
+      },
+    });
 
     // Store video metadata if provided
     if (videoTitle || channelName) {
@@ -107,7 +110,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Extract claims using AI
-    const response = await openai.chat.completions.create({
+    const response = await openaiClient.chat.completions.create({
       model: 'openai/gpt-4o-mini',
       messages: [
         {
@@ -178,7 +181,7 @@ If no significant fact-checkable claims exist, return: {"claims": []}`,
       savedClaims.push(result[0]);
 
       // Automatically trigger fact-checking in the background
-      processClaimFactCheck(result[0].id).catch((error) => {
+      processClaimFactCheck(result[0].id, apiKey).catch((error) => {
         console.error(`Error auto-triggering fact-check for claim ${result[0].id}:`, error);
       });
     }
