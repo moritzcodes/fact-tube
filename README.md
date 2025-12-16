@@ -40,7 +40,7 @@
 ### 1️⃣ Install
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/moritzcodes/fact-tube.git
 cd fact-tube
 pnpm install
 ```
