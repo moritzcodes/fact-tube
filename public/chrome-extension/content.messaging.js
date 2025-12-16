@@ -71,8 +71,36 @@ YouTubeFactChecker.prototype.loadData = function(data) {
         console.log('ℹ️ No claims found in this video');
         this.mockFactChecks = [];
         this.isAnalysisInProgress = false;
+        
+        // Set flag to show info icon instead of play button
+        this.analysisCompleteNoClaimsFound = true;
+        
         this.updateButtonState();
-        this.updateVisibleClaims();
+        
+        // Show a brief "no claims" card
+        this.morphToCard({
+            claim: 'No Fact-Checkable Claims Found',
+            status: 'neutral',
+            speaker: null,
+            judgement: {
+                summary: 'This video has been analyzed but no significant fact-checkable claims were detected.',
+                reasoning: 'The video content did not contain statements that could be fact-checked against reliable sources.'
+            },
+            sources: [],
+            evidence: []
+        }, false);
+        
+        // Auto-close after 5 seconds
+        const self = this;
+        this.autoCloseTimer = setTimeout(() => {
+            if (!self.userInteracted) {
+                self.morphToFab();
+                setTimeout(() => {
+                    self.updateButtonState();
+                }, 500);
+            }
+        }, 5000);
+        
         return;
     }
 
@@ -335,7 +363,7 @@ YouTubeFactChecker.prototype.handleExtractTranscript = async function(data, send
             chrome.storage.local.get(['openrouterApiKey', 'apiBaseUrl'], (result) => {
                 resolve({
                     apiKey: result.openrouterApiKey || '',
-                    apiBaseUrl: result.apiBaseUrl || 'http://localhost:3000'
+                    apiBaseUrl: result.apiBaseUrl || 'https://fact-tube.vercel.app'
                 });
             });
         });

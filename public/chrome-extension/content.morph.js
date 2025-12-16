@@ -237,15 +237,11 @@ YouTubeFactChecker.prototype.createAnalyzeButton = function() {
 
 YouTubeFactChecker.prototype.updateButtonState = function() {
     const buttonContent = this.activeIndicator ? this.activeIndicator.querySelector('.analyze-button-content') : null;
-    if (!buttonContent) {
-        console.warn('⚠️ No button content found in updateButtonState');
-        return;
-    }
+    if (!buttonContent) return;
 
     // Hide button content when morphed/expanded
     if (this.isMorphed) {
         buttonContent.style.display = 'none';
-        console.log('🔽 Button hidden (morphed state)');
         return;
     }
 
@@ -253,8 +249,7 @@ YouTubeFactChecker.prototype.updateButtonState = function() {
     buttonContent.style.display = 'flex';
 
     if (this.isAnalysisInProgress) {
-        // Only show loading when NOT morphed (in small circle form)
-        console.log('⏳ Button state: Analysis in progress');
+        // Analysis in progress - show loading spinner
         buttonContent.innerHTML = `
             <div style="width:20px;height:20px;border:2px solid #fff;border-top:2px solid transparent;border-radius:50%;animation:spin 1s linear infinite;"></div>
             <style>
@@ -265,15 +260,38 @@ YouTubeFactChecker.prototype.updateButtonState = function() {
             </style>
         `;
         buttonContent.style.cursor = 'not-allowed';
+    } else if (this.analysisCompleteNoClaimsFound) {
+        // Analysis complete but no claims found - show info icon
+        buttonContent.innerHTML = `
+            <div style="
+                display: flex !important;
+                align-items: center;
+                justify-content: center;
+                width: 100%;
+                height: 100%;
+                font-size: 32px;
+                color: #FFF !important;
+                text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+                animation: gentlePulse 2s ease-in-out infinite;
+                font-weight: bold;
+            ">ℹ️</div>
+            <style>
+                @keyframes gentlePulse {
+                    0%, 100% { opacity: 1; transform: scale(1); }
+                    50% { opacity: 0.8; transform: scale(1.1); }
+                }
+            </style>
+        `;
+        buttonContent.style.cssText = 'display: flex !important; align-items: center; justify-content: center; width: 100%; height: 100%; position: relative; z-index: 4;';
+        buttonContent.style.cursor = 'pointer';
+        buttonContent.title = 'No fact-checkable claims found - Click to view details';
     } else if (this.mockFactChecks && this.mockFactChecks.length > 0) {
         // Data loaded - show checkmark
-        console.log('📊 Button state: Data loaded, showing checkmark');
         buttonContent.innerHTML = '✓';
         buttonContent.style.cursor = 'pointer';
         buttonContent.style.fontSize = '24px';
     } else {
         // Ready for analysis - show play button
-        console.log('🎯 Button state: Ready for analysis');
         buttonContent.innerHTML = '▶';
         buttonContent.style.cursor = 'pointer';
         buttonContent.style.fontSize = '24px';
@@ -285,30 +303,33 @@ YouTubeFactChecker.prototype.setupMorphInteractions = function() {
 
     // Click handler - starts analysis or allows content interaction
     this.activeIndicator.addEventListener('click', (event) => {
-        console.log('🖱️ FAB/Button clicked', event.target);
-
-        // If already morphed (expanded), only allow content interaction, don't close
-        // Check if click is on a button or interactive element
-        if (this.isMorphed) {
-            console.log('📋 Expanded card clicked - allowing content interaction');
-            // Don't close the card, let users interact with content (buttons, links, etc.)
-            return;
-        }
+        // If already morphed (expanded), only allow content interaction
+        if (this.isMorphed) return;
 
         // If analysis already in progress, do nothing
-        if (this.isAnalysisInProgress) {
-            console.log('⚠️ Analysis already in progress, ignoring click');
+        if (this.isAnalysisInProgress) return;
+
+        // If analysis complete but no claims found, show the "no claims" message
+        if (this.analysisCompleteNoClaimsFound) {
+            this.morphToCard({
+                claim: 'No Fact-Checkable Claims Found',
+                status: 'neutral',
+                speaker: null,
+                judgement: {
+                    summary: 'This video has been analyzed but no significant fact-checkable claims were detected.',
+                    reasoning: 'The AI analyzed the transcript but did not find any statements that meet the criteria for fact-checking (specific, objective, verifiable claims with measurable data).'
+                },
+                timestamp: 0,
+                sources: [],
+                evidence: []
+            }, false);
             return;
         }
 
         // If we already have data, clicking the circle does nothing (auto-open handles showing claims)
-        if (this.mockFactChecks && this.mockFactChecks.length > 0) {
-            console.log('📊 Data already loaded - circle click disabled to prevent showing claims');
-            return;
-        }
+        if (this.mockFactChecks && this.mockFactChecks.length > 0) return;
 
         // Otherwise, start analysis
-        console.log('🚀 Starting analysis from button click...');
         this.startAnalysis();
     });
 };
@@ -400,7 +421,7 @@ YouTubeFactChecker.prototype.morphToFab = function() {
         setTimeout(() => {
             this.clearCardContent();
 
-            // Update button state to show checkmark/play icon when back to small circle
+            // Update button state - will show info icon if analysisCompleteNoClaimsFound is true
             this.updateButtonState();
 
             // Reset user interaction flag after a delay to allow future auto-opens

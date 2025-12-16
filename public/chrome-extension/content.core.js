@@ -18,6 +18,7 @@ class YouTubeFactChecker {
         this.isMorphing = false;
         this.currentTooltip = null; // Track current tooltip
         this.isAnalysisInProgress = false; // Track analysis state
+        this.analysisCompleteNoClaimsFound = false; // Track if analysis completed with no claims
         this.mockFactChecks = []; // Store fact-check results
         this.userInteracted = false; // Track if user has manually interacted with overlay
         this.autoCloseTimer = null; // Timer for auto-closing overlay (legacy)

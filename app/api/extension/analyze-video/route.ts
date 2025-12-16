@@ -3,6 +3,8 @@ import { db } from '@/lib/db';
 import { videos, claims } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { Innertube } from 'youtubei.js';
+import { YoutubeTranscript } from 'youtube-transcript';
+import { getSubtitles } from 'youtube-caption-extractor';
 import OpenAI from 'openai';
 import { env } from '@/lib/env';
 import { processClaimFactCheck } from '@/lib/workers/fact-checker';
@@ -105,58 +107,176 @@ export async function POST(request: NextRequest) {
       }, { headers: corsHeaders });
     }
 
-    // Step 1: Fetch transcript using youtubei.js
-    console.log('🎬 Fetching transcript from YouTube...');
-    let transcript;
-    let videoInfo;
+    // Step 1: Fetch transcript using multiple strategies (same as tRPC route)
+    console.log(`\n🎬 Fetching transcript for video: ${videoId}`);
+    let segments: Array<{ start: number; text: string }> = [];
+    let videoTitle = 'Unknown';
+    let channelName = 'Unknown';
     
+    // Method 1: youtube-caption-extractor (most reliable, actively maintained)
     try {
-      const innertube = await Innertube.create();
-      videoInfo = await innertube.getInfo(videoId); 
-      
-      if (!videoInfo) {
-        throw new Error('Video not found or unavailable');
+      console.log('📝 Method 1: Trying youtube-caption-extractor...');
+      const subtitles = await getSubtitles({ videoID: videoId, lang: 'en' });
+
+      if (!subtitles || subtitles.length === 0) {
+        throw new Error('No captions returned from youtube-caption-extractor');
       }
 
-      const transcriptData = await videoInfo.getTranscript();
+      // Map to our segment format
+      segments = subtitles.map((item: { start: string; dur: string; text: string }) => ({
+        start: parseFloat(item.start),
+        text: item.text,
+      })).filter((seg: { start: number; text: string }) => seg.text.trim());
+
+      console.log(`✅ SUCCESS! Fetched ${segments.length} segments using youtube-caption-extractor`);
+
+      // Try to get video metadata from youtubei.js for title/channel
+      try {
+        const innertube = await Innertube.create();
+        const info = await innertube.getInfo(videoId);
+        if (info) {
+          videoTitle = info.basic_info.title || 'Unknown';
+          channelName = info.basic_info.channel?.name || info.basic_info.author || 'Unknown';
+        }
+      } catch (metaError) {
+        console.warn('⚠️ Could not fetch video metadata:', metaError);
+        // Continue without metadata - we have the transcript which is most important
+      }
+    } catch (captionExtractorError) {
+      const errorMsg = captionExtractorError instanceof Error ? captionExtractorError.message : String(captionExtractorError);
+      console.log(`❌ youtube-caption-extractor failed: ${errorMsg}`);
       
-      if (!transcriptData || !transcriptData.transcript) {
-        throw new Error('No transcript available for this video');
+      // If the video genuinely has no captions, don't try other methods
+      if (errorMsg.includes('Could not find captions') || errorMsg.includes('No captions')) {
+        console.error('Video has no captions available');
+        return NextResponse.json(
+          {
+            error: 'No captions available',
+            message: 'This video does not have captions/subtitles available. Please try a video with captions enabled.',
+            videoId,
+          },
+          { status: 400, headers: corsHeaders }
+        );
       }
 
-      transcript = transcriptData.transcript;
-    } catch (error) {
-      console.error('❌ Error fetching transcript:', error);
-      const errorMessage = error instanceof Error ? error.message : 'No captions/subtitles available for this video';
-      return NextResponse.json(
-        {
-          error: 'Failed to fetch transcript',
-          message: errorMessage,
-        },
-        { status: 400, headers: corsHeaders }
-      );
+      // Method 2: youtube-transcript (fallback)
+      try {
+        console.log('📝 Method 2: Trying youtube-transcript...');
+        const transcriptItems = await YoutubeTranscript.fetchTranscript(videoId);
+        
+        if (!transcriptItems || transcriptItems.length === 0) {
+          throw new Error('youtube-transcript returned empty array');
+        }
+        
+        segments = transcriptItems.map((item: any) => ({
+          start: item.offset / 1000, // Convert ms to seconds
+          text: item.text,
+        }));
+        
+        console.log(`✅ SUCCESS! Fetched ${segments.length} segments using youtube-transcript`);
+        
+        // Try to get video metadata
+        try {
+          const innertube = await Innertube.create();
+          const info = await innertube.getInfo(videoId);
+          if (info) {
+            videoTitle = info.basic_info.title || 'Unknown';
+            channelName = info.basic_info.channel?.name || info.basic_info.author || 'Unknown';
+          }
+        } catch (metaError) {
+          console.warn('⚠️ Could not fetch video metadata:', metaError);
+        }
+      } catch (transcriptLibError) {
+        const errorMsg2 = transcriptLibError instanceof Error ? transcriptLibError.message : String(transcriptLibError);
+        console.log(`❌ youtube-transcript failed: ${errorMsg2}`);
+        
+        // Method 3: youtubei.js (last resort)
+        let lastError: Error | null = null;
+        const clientStrategies = ['WEB', 'ANDROID', 'IOS'];
+        
+        for (const clientType of clientStrategies) {
+          try {
+            console.log(`📝 Method 3: Trying youtubei.js with ${clientType} client...`);
+            
+            const innertube = await Innertube.create({
+              client_type: clientType as any,
+              retrieve_player: clientType === 'WEB',
+            });
+            
+            const info = await innertube.getInfo(videoId);
+            
+            if (!info) {
+              throw new Error('Video not found or unavailable');
+            }
+
+            const transcriptData = await info.getTranscript();
+            
+            if (!transcriptData || !transcriptData.transcript) {
+              throw new Error('No transcript available for this video');
+            }
+
+            // Extract segments
+            segments = transcriptData.transcript.content?.body?.initial_segments?.map((segment: any) => ({
+              start: (typeof segment.start_ms === 'string' ? parseFloat(segment.start_ms) || 0 : segment.start_ms || 0) / 1000,
+              text: segment.snippet?.text || '',
+            })).filter((seg: { start: number; text: string }) => seg.text.trim()) || [];
+            
+            // Get metadata
+            videoTitle = info.basic_info.title || 'Unknown';
+            channelName = info.basic_info.channel?.name || info.basic_info.author || 'Unknown';
+            
+            console.log(`✅ SUCCESS! Fetched ${segments.length} segments using youtubei.js ${clientType} client`);
+            break; // Success, exit loop
+          } catch (error) {
+            lastError = error instanceof Error ? error : new Error('Unknown error');
+            console.error(`❌ youtubei.js ${clientType} failed:`, lastError.message);
+          }
+        }
+        
+        // If all methods failed, return error
+        if (segments.length === 0) {
+          console.error('\n❌ ALL METHODS FAILED to fetch transcript');
+          console.error('Last error:', lastError);
+          
+          const errorMessage = lastError?.message || 'Failed to fetch transcript';
+          let userMessage = 'Could not fetch transcript for this video. ';
+          
+          if (errorMessage.includes('Precondition check failed')) {
+            userMessage += 'YouTube is temporarily blocking transcript requests. Please try again later or verify the video has captions enabled.';
+          } else if (errorMessage.includes('No transcript')) {
+            userMessage += 'This video does not have captions/subtitles enabled.';
+          } else if (errorMessage.includes('not found') || errorMessage.includes('NOT_FOUND')) {
+            userMessage += 'This video could not be found or is unavailable.';
+          } else {
+            userMessage += errorMessage;
+          }
+          
+          console.error('Returning error:', userMessage);
+          
+          return NextResponse.json(
+            {
+              error: 'Failed to fetch transcript',
+              message: userMessage,
+              videoId,
+            },
+            { status: 400, headers: corsHeaders }
+          );
+        }
+      }
     }
-
-    // Extract segments
-        const segments = transcript.content?.body?.initial_segments?.map((segment: { start_ms?: string | number; snippet?: { text?: string } }) => ({
-          start: (typeof segment.start_ms === 'string' ? parseFloat(segment.start_ms) || 0 : segment.start_ms || 0) / 1000,
-          text: segment.snippet?.text || '',
-        })).filter((seg: { start: number; text: string }) => seg.text.trim()) || [];
-
+    
+    // Validate we have transcript data
     if (segments.length === 0) {
+      console.error('❌ No segments found after all strategies');
       return NextResponse.json(
         { error: 'No transcript segments found for this video' },
         { status: 400, headers: corsHeaders }
       );
     }
 
-    console.log(`✅ Fetched ${segments.length} transcript segments`);
+    console.log(`✅ Total segments fetched: ${segments.length}`);
 
     // Save video metadata
-    const basicInfo = videoInfo.basic_info;
-    const videoTitle = basicInfo.title || 'Unknown';
-    const channelName = basicInfo.channel?.name || basicInfo.author || 'Unknown';
-
     try {
       await db.insert(videos).values({
         id: videoId,

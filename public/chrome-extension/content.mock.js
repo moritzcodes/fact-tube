@@ -11,8 +11,9 @@ YouTubeFactChecker.prototype.startAnalysis = function() {
     const videoUrl = window.location.href;
     console.log('📹 Starting analysis for video:', videoUrl);
 
+    // Reset flags
     this.isAnalysisInProgress = true;
-    this.updateButtonState();
+    this.analysisCompleteNoClaimsFound = false;
 
     // Extract video ID from URL
     const videoId = this.extractVideoIdFromUrl(videoUrl);
@@ -135,12 +136,40 @@ YouTubeFactChecker.prototype.handleAnalysisComplete = function(result) {
     // Reset analysis state FIRST - this stops the spinner
     console.log('🔄 Resetting analysis state...');
     this.isAnalysisInProgress = false;
-    this.updateButtonState();
+    // DON'T call updateButtonState yet - we need to check if there are claims first!
 
     // Handle case where no claims were found
     if (result.totalClaims === 0 || (!result.claim_responses || result.claim_responses.length === 0)) {
         console.log('ℹ️ No claims found in this video');
         this.mockFactChecks = [];
+        this.analysisCompleteNoClaimsFound = true;
+        this.updateButtonState();
+        
+        // Show a card with "no claims" message
+        this.morphToCard({
+            claim: 'No Fact-Checkable Claims Found',
+            status: 'neutral',
+            speaker: null,
+            judgement: {
+                summary: 'This video has been analyzed but no significant fact-checkable claims were detected.',
+                reasoning: 'The AI analyzed the transcript but did not find any statements that meet the criteria for fact-checking (specific, objective, verifiable claims with measurable data).'
+            },
+            timestamp: 0,
+            sources: [],
+            evidence: []
+        }, false);
+        
+        // Auto-close after 5 seconds
+        const self = this;
+        this.autoCloseTimer = setTimeout(() => {
+            if (!self.userInteracted) {
+                self.morphToFab();
+                setTimeout(() => {
+                    self.updateButtonState();
+                }, 500);
+            }
+        }, 5000);
+        
         return;
     }
 
@@ -161,6 +190,10 @@ YouTubeFactChecker.prototype.handleAnalysisComplete = function(result) {
         }));
 
         console.log('Processed fact-check data:', this.mockFactChecks.length, 'claims');
+
+        // Update button state to show checkmark (claims were found)
+        console.log('🔄 Updating button state to show checkmark (claims found)');
+        this.updateButtonState();
 
         // IMPROVED: Pre-load grouping data (will be used later when video is ready)
         // This prepares grouping without needing video.duration

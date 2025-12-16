@@ -8,13 +8,13 @@ async function getSettings() {
         const result = await chrome.storage.local.get(['openrouterApiKey', 'apiBaseUrl']);
         return {
             apiKey: result.openrouterApiKey || '',
-            apiBaseUrl: result.apiBaseUrl || 'http://localhost:3000'
+            apiBaseUrl: result.apiBaseUrl || 'https://fact-tube.vercel.app'
         };
     } catch (error) {
         console.error('❌ Error loading settings:', error);
         return {
             apiKey: '',
-            apiBaseUrl: 'http://localhost:3000'
+            apiBaseUrl: 'https://fact-tube.vercel.app'
         };
     }
 }

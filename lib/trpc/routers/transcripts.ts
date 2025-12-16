@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { transcriptSegments } from '@/lib/db/schema';
 import { eq, and, isNull } from 'drizzle-orm';
 import { Innertube } from 'youtubei.js';
+import { YoutubeTranscript } from 'youtube-transcript';
+import { getSubtitles } from 'youtube-caption-extractor';
 
 // Extract video ID from YouTube URL or accept raw ID
 function extractVideoId(input: string): string | null {
@@ -49,17 +51,83 @@ export const transcriptsRouter = router({
       }
 
       try {
-        console.log(`Attempting to fetch transcript for video: ${videoId}${input.lang ? `, lang: ${input.lang}` : ' (default language)'}`);
+        console.log(`\n🎬 Fetching transcript for video: ${videoId}${input.lang ? `, lang: ${input.lang}` : ' (auto-detect)'}`);
         
-        // Create Innertube instance with optional language preference and proxy
+        // Method 1: youtube-caption-extractor (most reliable, actively maintained)
+        try {
+          console.log('📝 Method 1: Trying youtube-caption-extractor...');
+          const subtitles = await getSubtitles({ videoID: videoId, lang: input.lang || 'en' });
+
+          if (!subtitles || subtitles.length === 0) {
+            throw new Error('No captions returned from youtube-caption-extractor');
+          }
+
+          // Map to our segment format
+          const segments = subtitles.map((item: { start: string; dur: string; text: string }) => ({
+            start: parseFloat(item.start),
+            text: item.text,
+          })).filter((seg: { start: number; text: string }) => seg.text.trim());
+
+          console.log(`✅ SUCCESS! Fetched ${segments.length} segments using youtube-caption-extractor`);
+
+          return {
+            videoId,
+            lang: input.lang || 'default',
+            segments,
+            totalSegments: segments.length,
+          };
+        } catch (captionExtractorError) {
+          const errorMsg = captionExtractorError instanceof Error ? captionExtractorError.message : String(captionExtractorError);
+          console.log(`❌ youtube-caption-extractor failed: ${errorMsg}`);
+          
+          // If the video genuinely has no captions, don't try other methods
+          if (errorMsg.includes('Could not find captions') || errorMsg.includes('No captions')) {
+            throw new Error('This video does not have captions/subtitles available. Please try a video with captions enabled.');
+          }
+        }
+
+        // Method 2: youtube-transcript (fallback)
+        try {
+          console.log('📝 Method 2: Trying youtube-transcript...');
+          const transcriptItems = await YoutubeTranscript.fetchTranscript(videoId, {
+            lang: input.lang || 'en',
+          });
+
+          if (!transcriptItems || transcriptItems.length === 0) {
+            throw new Error('youtube-transcript returned empty array');
+          }
+
+          // Map to our segment format
+          const segments = transcriptItems.map((item: { offset: number; text: string }) => ({
+            start: item.offset / 1000, // Convert milliseconds to seconds
+            text: item.text,
+          })).filter((seg: { start: number; text: string }) => seg.text.trim());
+
+          console.log(`✅ SUCCESS! Fetched ${segments.length} segments using youtube-transcript`);
+
+          return {
+            videoId,
+            lang: input.lang || 'default',
+            segments,
+            totalSegments: segments.length,
+          };
+        } catch (transcriptLibError) {
+          const errorMsg = transcriptLibError instanceof Error ? transcriptLibError.message : String(transcriptLibError);
+          console.log(`❌ youtube-transcript failed: ${errorMsg}`);
+        }
+
+        // Method 3: youtubei.js (last resort)
+        console.log('📝 Method 3: Trying youtubei.js (last resort)...');
+        
+        // Create Innertube instance with optional language preference
         const innertubeOptions: { lang?: string; fetch?: typeof fetch } = {};
 
-        // Only set language if explicitly provided, otherwise use video's default language
+        // Only set language if explicitly provided
         if (input.lang) {
           innertubeOptions.lang = input.lang;
         }
 
-        // Add proxy configuration if available via environment variables
+        // Add custom headers and proxy if available
         if (process.env.YOUTUBE_PROXY_URL) {
           innertubeOptions.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
             const proxyUrl = process.env.YOUTUBE_PROXY_URL;
@@ -76,15 +144,12 @@ export const transcriptsRouter = router({
         }
 
         const innertube = await Innertube.create(innertubeOptions);
-
-        // Get video info
         const info = await innertube.getInfo(videoId);
         
         if (!info) {
           throw new Error('Video not found or unavailable');
         }
 
-        // Get transcript
         const transcriptData = await info.getTranscript();
         
         if (!transcriptData || !transcriptData.transcript) {
@@ -92,48 +157,49 @@ export const transcriptsRouter = router({
         }
 
         const transcript = transcriptData.transcript;
-        console.log(`Transcript data received, segments: ${transcript.content?.body?.initial_segments?.length || 0}`);
-
-        // Extract segments from the transcript
-        // Using simplified structure: only start and text (Option 2 - token efficient)
         const segments = transcript.content?.body?.initial_segments?.map((segment: { start_ms?: string | number; snippet?: { text?: string } }) => {
           const startMs = typeof segment.start_ms === 'string' ? parseFloat(segment.start_ms) || 0 : segment.start_ms || 0;
-
           return {
-            start: startMs / 1000, // Convert milliseconds to seconds
+            start: startMs / 1000,
             text: segment.snippet?.text || '',
           };
         }).filter((seg: { start: number; text: string }) => seg.text.trim()) || [];
-
-        console.log(`Successfully processed ${segments.length} segments`);
 
         if (segments.length === 0) {
           throw new Error('No transcript segments found for this video');
         }
 
+        console.log(`✅ SUCCESS! Fetched ${segments.length} segments using youtubei.js`);
+
         return {
           videoId,
-          lang: input.lang || 'default', // 'default' means video's original language
+          lang: input.lang || 'default',
           segments,
           totalSegments: segments.length,
         };
       } catch (err) {
-        console.error('Error fetching transcript:', err);
-        console.error('Error stack:', err instanceof Error ? err.stack : 'No stack trace');
+        console.error('\n❌ ALL METHODS FAILED to fetch transcript');
+        console.error('Error:', err instanceof Error ? err.message : err);
+        if (err instanceof Error && err.stack) {
+          console.error('Stack trace:', err.stack.split('\n').slice(0, 5).join('\n'));
+        }
         
-        // Provide more helpful error messages
+        // Provide more helpful error messages based on the error type
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        if (errorMessage.includes('No transcript available')) {
-          throw new Error('No captions/subtitles available for this video. The video may not have captions enabled.');
+        
+        if (errorMessage.includes('does not have captions')) {
+          throw err; // Pass through our custom error message
+        } else if (errorMessage.includes('No captions') || errorMessage.includes('No transcript available')) {
+          throw new Error('This video does not have captions/subtitles available. Please enable captions on YouTube or try a different video.');
         } else if (errorMessage.includes('disabled')) {
           throw new Error('Captions are disabled for this video');
         } else if (errorMessage.includes('unavailable') || errorMessage.includes('not found')) {
           throw new Error('Video is unavailable or does not exist');
-        } else if (errorMessage.includes('TranscriptError')) {
-          throw new Error('This video does not have captions/subtitles available. Try a different video.');
+        } else if (errorMessage.includes('Precondition check failed')) {
+          throw new Error('Unable to access YouTube transcript API. The video may have restricted access or captions may not be available.');
         }
 
-        throw new Error(errorMessage || 'Failed to fetch transcript');
+        throw new Error(`Failed to fetch transcript: ${errorMessage}`);
       }
     }),
 

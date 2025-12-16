@@ -27,7 +27,8 @@ async function loadSettings() {
         if (result.apiBaseUrl) {
             apiUrlInput.value = result.apiBaseUrl;
         } else {
-            apiUrlInput.value = 'http://localhost:3000';
+            // Default to production URL for deployed version
+            apiUrlInput.value = 'https://fact-tube.vercel.app';
         }
 
         console.log('✅ Settings loaded');
@@ -50,6 +51,26 @@ async function saveSettings() {
 
     if (!apiUrl) {
         showMessage('Please enter a backend URL', 'error');
+        return;
+    }
+
+    // Validate URL safety
+    try {
+        const url = new URL(apiUrl);
+        
+        // Only allow HTTPS for production domains (except localhost for development)
+        if (url.protocol !== 'https:' && !url.hostname.includes('localhost') && url.hostname !== '127.0.0.1') {
+            showMessage('Production URLs must use HTTPS', 'error');
+            return;
+        }
+        
+        // Ensure production URL is correct
+        if (url.hostname.includes('vercel.app') && url.hostname !== 'fact-tube.vercel.app') {
+            showMessage('Invalid Vercel domain. Use https://fact-tube.vercel.app', 'error');
+            return;
+        }
+    } catch (error) {
+        showMessage('Invalid URL format', 'error');
         return;
     }
 
