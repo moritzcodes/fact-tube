@@ -4,10 +4,8 @@
 const openrouterKeyInput = document.getElementById('openrouter-key');
 const apiUrlInput = document.getElementById('api-url');
 const saveBtn = document.getElementById('save-btn');
-const testBtn = document.getElementById('test-btn');
 const toggleVisibilityBtn = document.getElementById('toggle-visibility');
 const messageDiv = document.getElementById('message');
-const statusBadge = document.getElementById('status-badge');
 
 // Load saved settings on popup open
 document.addEventListener('DOMContentLoaded', async() => {
@@ -21,7 +19,6 @@ async function loadSettings() {
 
         if (result.openrouterApiKey) {
             openrouterKeyInput.value = result.openrouterApiKey;
-            updateStatusBadge(true);
         }
 
         if (result.apiBaseUrl) {
@@ -35,7 +32,6 @@ async function loadSettings() {
     } catch (error) {
         console.error('❌ Error loading settings:', error);
         showMessage('Failed to load settings', 'error');
-        updateStatusBadge(false);
     }
 }
 
@@ -89,7 +85,6 @@ async function saveSettings() {
             apiBaseUrl: apiUrl
         });
 
-        updateStatusBadge(true);
         showMessage('Settings saved', 'success');
 
         console.log('✅ Settings saved');
@@ -102,65 +97,11 @@ async function saveSettings() {
     }
 }
 
-// Test API connection
-async function testConnection() {
-    const apiUrl = apiUrlInput.value.trim();
-    const openrouterKey = openrouterKeyInput.value.trim();
-
-    if (!apiUrl) {
-        showMessage('Please enter a backend URL first', 'error');
-        return;
-    }
-
-    if (!openrouterKey) {
-        showMessage('Please enter an API key first', 'error');
-        return;
-    }
-
-    try {
-        testBtn.disabled = true;
-        testBtn.textContent = 'Testing...';
-        showMessage('Testing connection...', 'info');
-
-        // Test backend connectivity
-        const response = await fetch(`${apiUrl}/api/extension/process-video?video_url=test`, {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-                'X-OpenRouter-API-Key': openrouterKey
-            }
-        });
-
-        if (response.ok) {
-            showMessage('Connection successful', 'success');
-        } else {
-            showMessage(`Backend returned status ${response.status}`, 'error');
-        }
-    } catch (error) {
-        console.error('❌ Connection test failed:', error);
-        showMessage('Connection failed', 'error');
-    } finally {
-        testBtn.disabled = false;
-        testBtn.textContent = 'Test';
-    }
-}
-
 // Toggle password visibility
 function toggleVisibility() {
     const currentType = openrouterKeyInput.type;
     openrouterKeyInput.type = currentType === 'password' ? 'text' : 'password';
     toggleVisibilityBtn.textContent = currentType === 'password' ? '🙈' : '👁️';
-}
-
-// Update status badge
-function updateStatusBadge(configured) {
-    if (configured) {
-        statusBadge.textContent = 'Ready';
-        statusBadge.classList.add('configured');
-    } else {
-        statusBadge.textContent = 'Not Ready';
-        statusBadge.classList.remove('configured');
-    }
 }
 
 // Show message to user
@@ -178,7 +119,6 @@ function showMessage(text, type = 'info') {
 
 // Event listeners
 saveBtn.addEventListener('click', saveSettings);
-testBtn.addEventListener('click', testConnection);
 toggleVisibilityBtn.addEventListener('click', toggleVisibility);
 
 // Allow Enter key to save
