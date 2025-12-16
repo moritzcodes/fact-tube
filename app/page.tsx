@@ -226,52 +226,39 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen p-8 font-[family-name:var(--font-geist-sans)]">
-      <main className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8">FactTube - Backend Debugging</h1>
-
-        {/* Recent Videos Section */}
-        {showRecentVideos && recentVideos && recentVideos.length > 0 && (
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-8">
-            <h2 className="text-2xl font-semibold mb-4">Recent Videos</h2>
-            <div className="space-y-3">
-              {recentVideos.map((video) => (
-                <button
-                  key={video.id}
-                  onClick={() => handleSelectVideo(video.id)}
-                  className="w-full text-left p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <h3 className="font-semibold mb-1">{video.title || video.id}</h3>
-                      {video.channelName && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {video.channelName}
-                        </p>
-                      )}
-                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                        Added: {new Date(video.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex-shrink-0">
-                      <span className="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
-                        {video.id}
-                      </span>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        
+    <div className="min-h-screen p-4 md:p-8 font-[family-name:var(--font-geist-sans)] bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+      {/* Background gradient - Light mode */}
+      <div 
+        className="absolute inset-0 w-full h-full bg-gradient-to-t z-0 dark:hidden" 
+        style={{
+          '--from': '#E9D2BB',
+          '--via': '#87CEEB',
+          '--to': '#4682B4',
+          backgroundImage: 'linear-gradient(to top, var(--from), var(--via) 40%, var(--to))'
+        } as React.CSSProperties}
+      />
+      
+      {/* Background gradient - Dark mode */}
+      <div 
+        className="absolute inset-0 w-full h-full bg-gradient-to-t z-0 hidden dark:block" 
+        style={{
+          '--from': '#0C1732',
+          '--via': '#060F23',
+          '--to': '#000815',
+          backgroundImage: 'linear-gradient(to top, var(--from), var(--via) 40%, var(--to))'
+        } as React.CSSProperties}
+      />
+      
+      <main className="max-w-6xl mx-auto relative z-10">
+        <h1 className="text-4xl font-bold mb-8 text-white drop-shadow-lg">FactTube</h1>
+  
         {/* YouTube Transcript Fetcher */}
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-8">
-          <h2 className="text-2xl font-semibold mb-4">YouTube Transcript Fetcher</h2>
+        <div className="bg-white/10 md:bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 mb-8 shadow-2xl transition-all duration-300 hover:bg-white/15 z-20 relative">
+          <h2 className="text-2xl font-semibold mb-4 text-white">YouTube Transcript Fetcher</h2>
           
           <form onSubmit={handleFetchTranscript} className="space-y-4">
             <div>
-              <label htmlFor="videoInput" className="block text-sm font-medium mb-2">
+              <label htmlFor="videoInput" className="block text-sm font-medium mb-2 text-white/90">
                 YouTube Video ID or URL
               </label>
               <input
@@ -280,23 +267,23 @@ export default function Home() {
                 value={videoInput}
                 onChange={(e) => setVideoInput(e.target.value)}
                 placeholder="e.g., dQw4w9WgXcQ or https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-white/30 rounded-lg bg-white/10 md:bg-white/10 backdrop-blur-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-white/50 transition-all duration-300"
               />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-xs text-white/60 mt-1">
                 Note: Only videos with captions/subtitles enabled will work.{' '}
                 <button
                   type="button"
                   onClick={() => setVideoInput('jNQXAC9IVRw')}
-                  className="text-blue-600 dark:text-blue-400 hover:underline"
+                  className="text-blue-300 hover:text-blue-200 hover:underline transition-colors duration-200"
                 >
                   Try example video
                 </button>
               </p>
             </div>
 
-            <div className="flex gap-4 items-end">
-              <div className="flex-1">
-                <label htmlFor="language" className="block text-sm font-medium mb-2">
+            <div className="flex gap-4 items-end flex-col sm:flex-row">
+              <div className="flex-1 w-full">
+                <label htmlFor="language" className="block text-sm font-medium mb-2 text-white/90">
                   Language Code
                 </label>
                 <input
@@ -305,14 +292,14 @@ export default function Home() {
                   value={selectedLang}
                   onChange={(e) => setSelectedLang(e.target.value)}
                   placeholder="en"
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-white/30 rounded-lg bg-white/10 md:bg-white/10 backdrop-blur-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-white/50 transition-all duration-300"
                 />
               </div>
               
               <button
                 type="submit"
                 disabled={transcriptLoading}
-                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+                className="w-full sm:w-auto px-6 py-2 bg-blue-500/80 hover:bg-blue-500 disabled:bg-white/20 text-white rounded-lg font-medium transition-all duration-300 shadow-lg hover:shadow-xl backdrop-blur-sm border border-white/20 hover:scale-105"
               >
                 {transcriptLoading ? 'Fetching...' : 'Fetch Transcript'}
               </button>
@@ -323,7 +310,7 @@ export default function Home() {
           {!showRecentVideos && recentVideos && recentVideos.length > 0 && (
             <button
               onClick={() => setShowRecentVideos(true)}
-              className="mt-4 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              className="mt-4 text-sm text-blue-300 hover:text-blue-200 hover:underline transition-colors duration-200"
             >
               ← Back to Recent Videos
             </button>
@@ -331,20 +318,20 @@ export default function Home() {
 
           {/* Transcript Results */}
           {transcriptError && (
-            <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-              <p className="text-red-600 dark:text-red-400 font-semibold">Error:</p>
-              <p className="text-red-600 dark:text-red-400 text-sm mt-1">{transcriptError.message}</p>
+            <div className="mt-6 p-4 bg-red-500/20 backdrop-blur-md border border-red-400/30 rounded-lg shadow-lg transition-all duration-300">
+              <p className="text-red-200 font-semibold">Error:</p>
+              <p className="text-red-200/90 text-sm mt-1">{transcriptError.message}</p>
             </div>
           )}
 
           {/* Show stored transcript if available and not fetching new one */}
           {!transcript && dbTranscriptSegments && dbTranscriptSegments.length > 0 && dbVideo && (
             <div className="mt-6 space-y-4">
-              <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
-                <p className="text-purple-700 dark:text-purple-400 font-semibold">
+              <div className="p-4 bg-purple-500/20 backdrop-blur-md border border-purple-400/30 rounded-lg shadow-lg transition-all duration-300 hover:bg-purple-500/25">
+                <p className="text-purple-200 font-semibold">
                   ✓ Loaded from database
                 </p>
-                <div className="text-sm mt-2 text-gray-700 dark:text-gray-300 space-y-1">
+                <div className="text-sm mt-2 text-white/90 space-y-1">
                   <p><strong>Video ID:</strong> {fetchedVideoId}</p>
                   <p><strong>Title:</strong> {dbVideo.title}</p>
                   <p><strong>Channel:</strong> {dbVideo.channelName}</p>
@@ -353,21 +340,21 @@ export default function Home() {
               </div>
 
               {/* Database Transcript Segments */}
-              <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                <div className="bg-gray-100 dark:bg-gray-800 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                  <h3 className="font-semibold">Transcript Segments (from database)</h3>
+              <div className="border border-white/20 rounded-lg overflow-hidden backdrop-blur-sm bg-white/5 shadow-xl z-30 relative">
+                <div className="bg-white/10 md:bg-white/10 backdrop-blur-sm px-4 py-3 border-b border-white/20">
+                  <h3 className="font-semibold text-white">Transcript Segments (from database)</h3>
                 </div>
                 <div className="max-h-96 overflow-y-auto">
                   {dbTranscriptSegments.map((segment) => (
                     <div
                       key={segment.id}
-                      className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                      className="px-4 py-3 border-b border-white/10 hover:bg-white/10 transition-all duration-200"
                     >
                       <div className="flex gap-4">
-                        <div className="flex-shrink-0 w-20 text-sm font-mono text-gray-600 dark:text-gray-400">
+                        <div className="flex-shrink-0 w-20 text-sm font-mono text-blue-300">
                           {formatTimestamp(segment.startTime)}
                         </div>
-                        <div className="flex-1 text-sm">
+                        <div className="flex-1 text-sm text-white/80">
                           {segment.text}
                         </div>
                       </div>
@@ -381,11 +368,11 @@ export default function Home() {
           {transcript && (
             <div className="mt-6 space-y-4">
               {/* Summary */}
-              <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                <p className="text-green-700 dark:text-green-400 font-semibold">
+              <div className="p-4 bg-green-500/20 backdrop-blur-md border border-green-400/30 rounded-lg shadow-lg transition-all duration-300 hover:bg-green-500/25">
+                <p className="text-green-200 font-semibold">
                   ✓ Transcript fetched successfully!
                 </p>
-                <div className="text-sm mt-2 text-gray-700 dark:text-gray-300 space-y-1">
+                <div className="text-sm mt-2 text-white/90 space-y-1">
                   <p><strong>Video ID:</strong> {transcript.videoId}</p>
                   <p><strong>Language:</strong> {transcript.lang}</p>
                   <p><strong>Total Segments:</strong> {transcript.totalSegments}</p>
@@ -394,21 +381,21 @@ export default function Home() {
               </div>
 
               {/* Transcript Segments */}
-              <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                <div className="bg-gray-100 dark:bg-gray-800 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                  <h3 className="font-semibold">Transcript Segments</h3>
+              <div className="border border-white/20 rounded-lg overflow-hidden backdrop-blur-sm bg-white/5 shadow-xl z-30 relative">
+                <div className="bg-white/10 md:bg-white/10 backdrop-blur-sm px-4 py-3 border-b border-white/20">
+                  <h3 className="font-semibold text-white">Transcript Segments</h3>
                 </div>
                 <div className="max-h-96 overflow-y-auto">
                   {transcript.segments.map((segment: { start: number; text: string }, index: number) => (
                     <div
                       key={index}
-                      className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                      className="px-4 py-3 border-b border-white/10 hover:bg-white/10 transition-all duration-200"
                     >
                       <div className="flex gap-4">
-                        <div className="flex-shrink-0 w-20 text-sm font-mono text-gray-600 dark:text-gray-400">
+                        <div className="flex-shrink-0 w-20 text-sm font-mono text-blue-300">
                           {formatTimestamp(segment.start)}
                         </div>
-                        <div className="flex-1 text-sm">
+                        <div className="flex-1 text-sm text-white/80">
                           {segment.text}
                         </div>
                       </div>
@@ -418,11 +405,11 @@ export default function Home() {
               </div>
 
               {/* JSON Preview */}
-              <details className="border border-gray-200 dark:border-gray-700 rounded-lg">
-                <summary className="cursor-pointer px-4 py-3 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors font-medium">
+              <details className="border border-white/20 rounded-lg backdrop-blur-sm bg-white/5 shadow-lg overflow-hidden">
+                <summary className="cursor-pointer px-4 py-3 bg-white/10 md:bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all duration-300 font-medium text-white">
                   View Raw JSON
                 </summary>
-                <pre className="p-4 text-xs overflow-x-auto bg-gray-50 dark:bg-gray-900">
+                <pre className="p-4 text-xs overflow-x-auto bg-black/20 backdrop-blur-sm text-white/70">
                   {JSON.stringify(transcript, null, 2)}
                 </pre>
               </details>
@@ -431,17 +418,17 @@ export default function Home() {
 
           {/* Video Metadata Display */}
           {videoMetadata && (
-            <div className="mt-6 p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
-              <h3 className="font-semibold mb-3 text-purple-900 dark:text-purple-300">Video Context</h3>
-              <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+            <div className="mt-6 p-4 bg-purple-500/20 backdrop-blur-md border border-purple-400/30 rounded-lg shadow-lg transition-all duration-300 hover:bg-purple-500/25">
+              <h3 className="font-semibold mb-3 text-purple-200">Video Context</h3>
+              <div className="space-y-2 text-sm text-white/90">
                 <p><strong>Title:</strong> {videoMetadata.title}</p>
                 <p><strong>Channel:</strong> {videoMetadata.channelName}</p>
                 {videoMetadata.description && (
                   <details className="mt-2">
-                    <summary className="cursor-pointer text-purple-700 dark:text-purple-400 hover:underline">
+                    <summary className="cursor-pointer text-purple-300 hover:text-purple-200 hover:underline transition-colors duration-200">
                       View Description
                     </summary>
-                    <p className="mt-2 text-xs whitespace-pre-wrap bg-white dark:bg-gray-800 p-3 rounded border border-purple-200 dark:border-purple-700">
+                    <p className="mt-2 text-xs whitespace-pre-wrap bg-white/5 backdrop-blur-sm p-3 rounded border border-purple-400/30">
                       {videoMetadata.description}
                     </p>
                   </details>
@@ -452,9 +439,9 @@ export default function Home() {
 
           {/* Process Segments Button */}
           {transcript && (
-            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-              <h3 className="font-semibold mb-3">AI Claim Extraction (Improved)</h3>
-              <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
+            <div className="mt-6 p-4 bg-blue-500/20 backdrop-blur-md border border-blue-400/30 rounded-lg shadow-lg transition-all duration-300 hover:bg-blue-500/25">
+              <h3 className="font-semibold mb-3 text-white">AI Claim Extraction (Improved)</h3>
+              <p className="text-sm text-white/80 mb-4">
                 Use GPT-4o-mini (via OpenRouter) to extract <strong>only important, fact-checkable claims</strong> from the transcript.
                 {videoMetadata && ' Video context (title, description, channel) is used for better understanding.'}
                 Segments are processed in 60-second chunks asynchronously.
@@ -462,7 +449,7 @@ export default function Home() {
               <button
                 onClick={handleProcessSegments}
                 disabled={isProcessing || !transcript}
-                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+                className="px-6 py-2 bg-blue-500/80 hover:bg-blue-500 disabled:bg-white/20 text-white rounded-lg font-medium transition-all duration-300 shadow-lg hover:shadow-xl backdrop-blur-sm border border-white/20 hover:scale-105"
               >
                 {isProcessing 
                   ? `Processing... (${processedChunks}/${totalChunks})` 
@@ -471,13 +458,13 @@ export default function Home() {
               
               {isProcessing && (
                 <div className="mt-3">
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div className="w-full bg-white/20 backdrop-blur-sm rounded-full h-2 border border-white/20 overflow-hidden">
                     <div 
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      className="bg-gradient-to-r from-blue-400 to-purple-400 h-2 transition-all duration-300 shadow-lg"
                       style={{ width: `${(processedChunks / totalChunks) * 100}%` }}
                     />
                   </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  <p className="text-xs text-white/70 mt-1">
                     {processedChunks} of {totalChunks} chunks processed
                   </p>
                 </div>
@@ -485,15 +472,50 @@ export default function Home() {
             </div>
           )}
         </div>
+        {/* Recent Videos Section */}
+        {showRecentVideos && recentVideos && recentVideos.length > 0 && (
+          <div className="bg-white/10 md:bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 mb-8 shadow-2xl transition-all duration-300 hover:bg-white/15 z-20 relative">
+            <h2 className="text-2xl font-semibold mb-4 text-white">Recent Videos</h2>
+            <div className="space-y-3">
+              {recentVideos.map((video) => (
+                <button
+                  key={video.id}
+                  onClick={() => handleSelectVideo(video.id)}
+                  className="w-full text-left p-4 border border-white/20 rounded-lg bg-white/5 md:bg-white/5 backdrop-blur-sm hover:bg-white/20 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-[1.01] z-30 relative"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <h3 className="font-semibold mb-1 text-white">{video.title || video.id}</h3>
+                      {video.channelName && (
+                        <p className="text-sm text-white/70">
+                          {video.channelName}
+                        </p>
+                      )}
+                      <p className="text-xs text-white/50 mt-1">
+                        Added: {new Date(video.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex-shrink-0">
+                      <span className="text-xs px-2 py-1 rounded bg-blue-400/20 backdrop-blur-sm text-blue-200 border border-blue-300/30">
+                        {video.id}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      
 
         {/* Extracted Claims Section */}
         {(extractedClaims.length > 0 || (videoClaims && videoClaims.length > 0)) && (
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-semibold">
+          <div className="bg-white/10 md:bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 mb-8 shadow-2xl transition-all duration-300 hover:bg-white/15 z-20 relative">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+              <h2 className="text-2xl font-semibold text-white">
                 {isProcessing ? 'Claims Being Extracted...' : 'Extracted Claims'}
               </h2>
-              <span className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="text-sm text-white/70 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/20">
                 {(isProcessing ? extractedClaims : (videoClaims || extractedClaims)).length} claims
               </span>
             </div>
@@ -523,32 +545,32 @@ export default function Home() {
                 return (
                   <div
                     key={claim.id}
-                    className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                    className="p-4 border border-white/20 rounded-lg bg-white/5 md:bg-white/5 backdrop-blur-sm hover:bg-white/15 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-[1.01] z-30 relative"
                   >
-                    <div className="flex gap-4">
-                      <div className="flex-shrink-0 w-20 text-sm font-mono text-blue-600 dark:text-blue-400">
+                    <div className="flex gap-4 flex-col sm:flex-row">
+                      <div className="flex-shrink-0 w-20 text-sm font-mono text-blue-300">
                         {formatTimestamp(claim.timestamp)}
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-medium mb-1">{claim.claim}</p>
+                        <p className="text-sm font-medium mb-1 text-white">{claim.claim}</p>
                         {claim.speaker && (
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                          <p className="text-xs text-white/60 mb-2">
                             Speaker: {claim.speaker}
                           </p>
                         )}
                         
                         {/* Status Badge */}
                         <div className="mt-2 flex items-center gap-2">
-                          <span className={`text-xs px-2 py-1 rounded ${
+                          <span className={`text-xs px-2 py-1 rounded backdrop-blur-sm border transition-all duration-200 ${
                             claim.status === 'pending' 
-                              ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' 
+                              ? 'bg-yellow-500/20 text-yellow-200 border-yellow-400/30' 
                               : claim.status === 'verified'
-                              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                              ? 'bg-green-500/20 text-green-200 border-green-400/30'
                               : claim.status === 'false'
-                              ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                              ? 'bg-red-500/20 text-red-200 border-red-400/30'
                               : claim.status === 'disputed'
-                              ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'
-                              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400'
+                              ? 'bg-orange-500/20 text-orange-200 border-orange-400/30'
+                              : 'bg-white/10 text-white/70 border-white/20'
                           }`}>
                             {claim.status}
                           </span>
@@ -556,11 +578,11 @@ export default function Home() {
 
                         {/* Verdict/Explanation */}
                         {claim.verdict && (
-                          <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                          <div className="mt-3 p-3 bg-white/5 backdrop-blur-sm rounded-lg border border-white/20 transition-all duration-200 hover:bg-white/10">
+                            <p className="text-xs font-semibold text-white/90 mb-1">
                               Explanation:
                             </p>
-                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                            <p className="text-xs text-white/70">
                               {claim.verdict}
                             </p>
                           </div>
@@ -569,7 +591,7 @@ export default function Home() {
                         {/* Sources (show up to 2) */}
                         {parsedSources.length > 0 && (
                           <div className="mt-3">
-                            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            <p className="text-xs font-semibold text-white/90 mb-2">
                               Sources:
                             </p>
                             <div className="space-y-2">
@@ -579,17 +601,17 @@ export default function Home() {
                                   href={typeof source === 'string' ? source : source.url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="block text-xs p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                                  className="block text-xs p-2 bg-blue-500/20 backdrop-blur-sm rounded border border-blue-400/30 hover:bg-blue-500/30 transition-all duration-200 hover:scale-[1.02] shadow-sm hover:shadow-md"
                                 >
                                   <div className="flex items-start gap-2">
-                                    <span className="text-blue-600 dark:text-blue-400">🔗</span>
+                                    <span className="text-blue-300">🔗</span>
                                     <div className="flex-1 min-w-0">
                                       {typeof source === 'object' && source.title && (
-                                        <p className="font-medium text-blue-700 dark:text-blue-300 truncate">
+                                        <p className="font-medium text-blue-200 truncate">
                                           {source.title}
                                         </p>
                                       )}
-                                      <p className="text-blue-600 dark:text-blue-400 truncate">
+                                      <p className="text-blue-300/80 truncate">
                                         {typeof source === 'string' ? source : (source.url || '')}
                                       </p>
                                     </div>
@@ -597,7 +619,7 @@ export default function Home() {
                                 </a>
                               ))}
                               {parsedSources.length > 2 && (
-                                <p className="text-xs text-gray-500 dark:text-gray-500 italic">
+                                <p className="text-xs text-white/50 italic">
                                   +{parsedSources.length - 2} more source{parsedSources.length - 2 > 1 ? 's' : ''}
                                 </p>
                               )}
@@ -612,53 +634,6 @@ export default function Home() {
             </div>
           </div>
         )}
-
-        {/* Available Routes Reference */}
-        <div className="mt-8 p-6 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-semibold mb-3">Available tRPC Routes:</h2>
-          <div className="space-y-4 text-sm">
-            <div>
-              <h3 className="font-semibold text-blue-600 dark:text-blue-400">Transcripts:</h3>
-              <ul className="list-disc list-inside ml-4 space-y-1 text-gray-700 dark:text-gray-300">
-                <li><code>transcripts.fetchFromYouTube</code> - Fetch transcript from YouTube</li>
-                <li><code>transcripts.getVideoMetadata</code> - Get video metadata (title, description, etc.)</li>
-                <li><code>transcripts.saveSegments</code> - Save transcript segments to database (NEW)</li>
-                <li><code>transcripts.create</code> - Create transcript segment</li>
-                <li><code>transcripts.markProcessed</code> - Mark segment as processed</li>
-                <li><code>transcripts.getUnprocessed</code> - Get unprocessed segments</li>
-                <li><code>transcripts.getByVideoId</code> - Get all segments for video</li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold text-blue-600 dark:text-blue-400">Videos:</h3>
-              <ul className="list-disc list-inside ml-4 space-y-1 text-gray-700 dark:text-gray-300">
-                <li><code>videos.getById</code> - Get video metadata from database</li>
-                <li><code>videos.upsert</code> - Create or update video metadata (now includes description)</li>
-                <li><code>videos.getAll</code> - Get all videos (most recent first)</li>
-                <li className="text-green-600 dark:text-green-400">✨ Videos automatically saved when transcript is fetched</li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold text-blue-600 dark:text-blue-400">Claims:</h3>
-              <ul className="list-disc list-inside ml-4 space-y-1 text-gray-700 dark:text-gray-300">
-                <li><code>claims.getByVideoId</code> - Get all claims for a video</li>
-                <li><code>claims.getById</code> - Get a single claim</li>
-                <li><code>claims.create</code> - Create a new claim</li>
-                <li><code>claims.updateStatus</code> - Update claim verification status</li>
-                <li><code>claims.getByTimeRange</code> - Get claims by time range</li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold text-blue-600 dark:text-blue-400">AI Processing (IMPROVED):</h3>
-              <ul className="list-disc list-inside ml-4 space-y-1 text-gray-700 dark:text-gray-300">
-                <li><code>ai.extractClaims</code> - Extract important claims with video context (GPT-4o-mini)</li>
-                <li><code>ai.extractClaimsBatch</code> - Batch process with selective filtering</li>
-                <li className="text-green-600 dark:text-green-400">✨ Now includes video description for better context</li>
-                <li className="text-green-600 dark:text-green-400">✨ More selective: only extracts significant, fact-checkable claims</li>
-              </ul>
-            </div>
-          </div>
-        </div>
       </main>
     </div>
   );

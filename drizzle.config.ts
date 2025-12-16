@@ -3,17 +3,16 @@ import * as dotenv from 'dotenv';
 
 dotenv.config({ path: '.env.local' });
 
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL is not set in .env.local');
-}
+// Use SQLite by default, PostgreSQL if DATABASE_URL is provided
+const isPostgres = !!process.env.DATABASE_URL;
 
 export default defineConfig({
   schema: './lib/db/schema.ts',
   out: './drizzle',
-  dialect: 'postgresql',
-  dbCredentials: {
-    url: process.env.DATABASE_URL,
-  },
+  dialect: isPostgres ? 'postgresql' : 'sqlite',
+  dbCredentials: isPostgres 
+    ? { url: process.env.DATABASE_URL! }
+    : { url: './data/local.db' },
   verbose: true,
   strict: true,
 });
