@@ -87,12 +87,23 @@ export default function Home() {
     toast.info('Loading video...');
   };
 
-  // Save video metadata and transcript to database when fetched
+  // Track which videos have been saved to prevent duplicate saves
+  const [savedVideoIds, setSavedVideoIds] = useState<Set<string>>(new Set());
+
+  // Save video metadata and transcript to database when fetched (only once per video)
   useEffect(() => {
     const saveToDatabase = async () => {
       if (!transcript || !videoMetadata || !fetchedVideoId) return;
+      
+      // Skip if already saved
+      if (savedVideoIds.has(fetchedVideoId)) {
+        console.log(`Video ${fetchedVideoId} already saved, skipping...`);
+        return;
+      }
 
       try {
+        console.log(`Saving video ${fetchedVideoId} to database...`);
+        
         // Save video metadata
         await saveVideoMutation.mutateAsync({
           id: fetchedVideoId,
@@ -108,8 +119,11 @@ export default function Home() {
           segments: transcript.segments,
         });
 
+        // Mark as saved
+        setSavedVideoIds(prev => new Set(prev).add(fetchedVideoId));
+
         // Refetch recent videos
-        await refetchRecentVideos();
+        refetchRecentVideos();
 
         toast.success('Video and transcript saved to database');
       } catch (error) {
@@ -119,7 +133,8 @@ export default function Home() {
     };
 
     saveToDatabase();
-  }, [transcript, videoMetadata, fetchedVideoId, saveVideoMutation, saveTranscriptMutation, refetchRecentVideos]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transcript, videoMetadata, fetchedVideoId]);
 
   // Process transcript segments asynchronously
   const handleProcessSegments = async () => {

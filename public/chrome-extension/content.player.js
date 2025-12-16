@@ -54,6 +54,7 @@ YouTubeFactChecker.prototype.extractVideoId = function() {
 
         // Reset analysis state
         this.isAnalysisInProgress = false;
+        this.analysisCompleteNoClaimsFound = false;
 
         // Create active indicator only once for this video
         console.log('🎨 Creating active indicator button...');
