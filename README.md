@@ -1,6 +1,12 @@
 # FactTube - Real-time YouTube Fact Checking
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
+
 A real-time fact-checking application for YouTube videos that extracts claims as they're spoken and verifies them in the background.
+
+**🎉 Open Source & Easy to Run**: No external database or cloud services required! Just clone, install, and run.
 
 ## ✨ Features
 
@@ -15,7 +21,7 @@ A real-time fact-checking application for YouTube videos that extracts claims as
 ## 🛠️ Tech Stack
 
 - **Framework:** Next.js 15 (App Router)
-- **Database:** Neon (Serverless PostgreSQL)
+- **Database:** SQLite (local) or PostgreSQL/Neon (optional)
 - **ORM:** Drizzle ORM
 - **API:** tRPC with React Query
 - **AI/ML:** 
@@ -27,32 +33,50 @@ A real-time fact-checking application for YouTube videos that extracts claims as
 
 ## 🚀 Getting Started
 
-See [SETUP.md](./SETUP.md) for detailed setup instructions.
+> **⚡ Want to get started in 2 minutes?** See [QUICKSTART.md](./QUICKSTART.md) for the fastest setup guide!
 
-### Quick Start
+### Quick Start (No External Dependencies Required!)
 
 1. **Clone and install dependencies:**
    ```bash
+   git clone <your-repo-url>
+   cd fact-tube
    pnpm install
    ```
 
-2. **Set up environment variables:**
-   - Create a project at [console.neon.tech](https://console.neon.tech/)
-   - Get API keys from [OpenRouter](https://openrouter.ai/keys) and [Perplexity](https://www.perplexity.ai/settings/api)
-   - Copy `env.example` to `.env.local`
-   - Add your `DATABASE_URL`, `OPENROUTER_API_KEY`, and `PERPLEXITY_API_KEY`
-
-3. **Push database schema:**
+2. **Optional: Set up environment variables (for AI features)**
    ```bash
-   pnpm db:push
+   cp env.example .env.local
+   # Add your OPENROUTER_API_KEY if you want AI-powered fact-checking
    ```
 
-4. **Start the dev server:**
+3. **Start the dev server:**
    ```bash
    pnpm dev
    ```
 
-Visit [http://localhost:3000](http://localhost:3000) to verify setup!
+That's it! The app will automatically:
+- ✅ Create a local SQLite database in `./data/local.db`
+- ✅ Initialize all tables automatically
+- ✅ Work completely offline (except for AI features)
+
+Visit [http://localhost:3000](http://localhost:3000) to start using it!
+
+### Advanced Setup (Optional PostgreSQL)
+
+If you want to use PostgreSQL/Neon instead of SQLite:
+
+1. Create a database at [console.neon.tech](https://console.neon.tech/)
+2. Add `DATABASE_URL` to your `.env.local`:
+   ```env
+   DATABASE_URL="postgresql://username:password@host/database?sslmode=require"
+   ```
+3. Push the schema:
+   ```bash
+   pnpm db:push
+   ```
+
+The app will automatically detect the `DATABASE_URL` and use PostgreSQL instead of SQLite.
 
 ## 📁 Project Structure
 
@@ -148,12 +172,22 @@ pnpm db:migrate       # Run migrations
 
 ## 🔒 Environment Variables
 
-Create a `.env.local` file with:
+All environment variables are **optional**! The app works out of the box with:
+- Local SQLite database (no setup needed)
+- Mock/demo mode for AI features (if no API keys provided)
+
+### Optional Configuration
+
+Create a `.env.local` file to customize:
 
 ```env
-DATABASE_URL="postgresql://..."           # Your Neon database URL
-OPENROUTER_API_KEY="sk-or-..."           # OpenRouter API key for claim extraction
-PERPLEXITY_API_KEY="pplx-..."            # Perplexity API key for fact-checking
+# Database (optional - uses SQLite by default)
+# DATABASE_URL="postgresql://..."           # Use PostgreSQL/Neon instead
+
+# AI Features (optional - for fact-checking)
+# OPENROUTER_API_KEY="sk-or-..."           # OpenRouter API key
+# PERPLEXITY_API_KEY="pplx-..."            # Perplexity API key
+
 NODE_ENV="development"
 ```
 
@@ -161,6 +195,12 @@ See `env.example` for complete configuration options.
 
 ## 📚 Documentation
 
+### Getting Started
+- **[Quick Start](./QUICKSTART.md)** - Get running in 2 minutes
+- **[Contributing Guide](./CONTRIBUTING.md)** - How to contribute to the project
+- **[Database Guide](./DATABASE.md)** - SQLite vs PostgreSQL comparison
+
+### Features & Setup
 - **[Chrome Extension Setup](./CHROME_EXTENSION_SETUP.md)** - Complete guide to setting up the extension
 - [Fact-Checking Setup](./SETUP_FACT_CHECKING.md) - Quick guide to set up fact-checking
 - [Fact-Checking Documentation](./FACT_CHECKING.md) - Detailed fact-checking system docs
@@ -196,8 +236,27 @@ See [CHROME_EXTENSION_SETUP.md](./CHROME_EXTENSION_SETUP.md) for detailed instru
 
 ## 🤝 Contributing
 
-This project is currently in development. See [Project.md](./Project.md) for the implementation roadmap.
+We welcome contributions! This project is designed to be easy to run locally with zero external dependencies.
+
+**Quick Start for Contributors:**
+```bash
+git clone <your-repo-url>
+cd fact-tube
+pnpm install
+pnpm dev  # That's it! 🎉
+```
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed contribution guidelines.
+
+### Development Highlights
+
+- 🏠 **Local-first**: Uses SQLite by default, no cloud setup needed
+- 🔧 **Zero config**: Works out of the box
+- 🎯 **Type-safe**: Full TypeScript and tRPC integration
+- 🧪 **Easy testing**: Built-in dev tools and hot reload
 
 ## 📄 License
 
-MIT
+MIT License - see [LICENSE](./LICENSE) for details.
+
+Open source and free to use for personal and commercial projects.

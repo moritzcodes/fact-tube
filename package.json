@@ -1,7 +1,20 @@
 {
     "name": "fact-tube",
     "version": "0.1.0",
-    "private": true,
+    "description": "Real-time YouTube fact-checking with AI",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/YOUR_USERNAME/fact-tube.git"
+    },
+    "keywords": [
+        "youtube",
+        "fact-checking",
+        "ai",
+        "chrome-extension",
+        "nextjs",
+        "typescript"
+    ],
     "scripts": {
         "dev": "next dev --turbopack",
         "build": "next build --turbopack",
@@ -35,6 +48,7 @@
     "devDependencies": {
         "@eslint/eslintrc": "^3",
         "@tailwindcss/postcss": "^4",
+        "@types/better-sqlite3": "^7.6.13",
         "@types/node": "^20",
         "@types/react": "^19",
         "@types/react-dom": "^19",

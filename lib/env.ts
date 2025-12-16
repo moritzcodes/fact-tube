@@ -1,21 +1,11 @@
 /**
  * Type-safe environment variables
- * Validates that required environment variables are present
+ * All variables are now optional to support local development
  */
 
-function getEnv(key: string, fallback?: string): string {
-  const value = process.env[key] ?? fallback;
-  
-  if (!value) {
-    throw new Error(`Missing environment variable: ${key}`);
-  }
-  
-  return value;
-}
-
 export const env = {
-  DATABASE_URL: getEnv('DATABASE_URL'),
-  NODE_ENV: getEnv('NODE_ENV', 'development'),
+  DATABASE_URL: process.env.DATABASE_URL, // Optional - uses SQLite if not provided
+  NODE_ENV: process.env.NODE_ENV ?? 'development',
   VERCEL_URL: process.env.VERCEL_URL,
   OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY, // Optional - users can provide their own via extension settings
 } as const;
