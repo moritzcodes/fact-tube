@@ -93,19 +93,6 @@ The app auto-creates a local SQLite database. No cloud setup required. ✨
 
 ---
 
-## 🛠️ Tech Stack
-
-| Technology | Purpose |
-|------------|---------|
-| **Next.js 15** | Web framework with App Router |
-| **SQLite** | Local database (via libsql) |
-| **tRPC** | Type-safe API layer |
-| **OpenRouter** | AI claim extraction (GPT-4o-mini) |
-| **Tailwind CSS** | Modern styling |
-| **Drizzle ORM** | Database management |
-
----
-
 ## 🔄 How It Works
 
 1. **📹 Extract** - Extension pulls transcript from YouTube video
