@@ -1,27 +1,18 @@
-import { pgTable, text, timestamp, integer, uuid, pgEnum, index } from "drizzle-orm/pg-core";
-
-// Enum for claim status
-export const claimStatusEnum = pgEnum('claim_status', [
-  'pending',
-  'verified',
-  'false',
-  'disputed',
-  'inconclusive'
-]);
+import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 
 // Claims table based on the project requirements
-export const claims = pgTable("claims", {
-  id: uuid("id").defaultRandom().primaryKey(),
+export const claims = sqliteTable("claims", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()), // Generate UUID by default
   videoId: text("video_id").notNull(),
   claim: text("claim").notNull(),
   speaker: text("speaker"),
   timestamp: integer("timestamp").notNull(), // timestamp in seconds
-  status: claimStatusEnum("status").default('pending').notNull(),
+  status: text("status").default('pending').notNull(), // 'pending' | 'verified' | 'false' | 'disputed' | 'inconclusive'
   verdict: text("verdict"),
   sources: text("sources"), // JSON string of sources
   sourceBias: text("source_bias"), // JSON string of sources with bias information
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: integer("created_at", { mode: 'timestamp' }).$defaultFn(() => new Date()).notNull(),
+  updatedAt: integer("updated_at", { mode: 'timestamp' }).$defaultFn(() => new Date()).notNull(),
 }, (table) => ({
   // Index for faster queries by videoId (most common query pattern)
   videoIdIdx: index("claims_video_id_idx").on(table.videoId),
@@ -30,25 +21,25 @@ export const claims = pgTable("claims", {
 }));
 
 // Transcript segments table for storing processed transcript chunks
-export const transcriptSegments = pgTable("transcript_segments", {
-  id: uuid("id").defaultRandom().primaryKey(),
+export const transcriptSegments = sqliteTable("transcript_segments", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   videoId: text("video_id").notNull(),
   text: text("text").notNull(),
   startTime: integer("start_time").notNull(), // in seconds
   endTime: integer("end_time").notNull(), // in seconds
-  processed: timestamp("processed"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  processed: integer("processed", { mode: 'timestamp' }),
+  createdAt: integer("created_at", { mode: 'timestamp' }).$defaultFn(() => new Date()).notNull(),
 });
 
 // Video metadata table
-export const videos = pgTable("videos", {
+export const videos = sqliteTable("videos", {
   id: text("id").primaryKey(), // YouTube video ID
   title: text("title"),
   description: text("description"),
   channelName: text("channel_name"),
-  publishedAt: timestamp("published_at"),
+  publishedAt: integer("published_at", { mode: 'timestamp' }),
   duration: integer("duration"), // in seconds
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: integer("created_at", { mode: 'timestamp' }).$defaultFn(() => new Date()).notNull(),
 });
 
 // Type exports for TypeScript

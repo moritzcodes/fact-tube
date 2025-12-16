@@ -180,9 +180,7 @@ GET /api/extension/stream-claims?video_id={id}
 The extension connects to your backend, which requires these environment variables:
 
 ```env
-DATABASE_URL="postgresql://..."      # Neon database
-OPENROUTER_API_KEY="sk-or-..."       # For claim extraction
-PERPLEXITY_API_KEY="pplx-..."        # For fact-checking
+OPENROUTER_API_KEY="sk-or-..."       # For claim extraction (optional)
 ```
 
 ### Extension Settings

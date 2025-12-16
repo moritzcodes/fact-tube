@@ -45,22 +45,30 @@ export default function Home() {
   const { data: videoClaims, refetch: refetchClaims } = trpc.claims.getByVideoId.useQuery(
     { videoId: fetchedVideoId! },
     { enabled: !!fetchedVideoId }
-  );
+  ) as { data: Array<{
+    id: string;
+    claim: string;
+    speaker?: string | null;
+    timestamp: number;
+    status: string;
+    verdict?: string | null;
+    sources?: Array<{ url: string; title?: string }> | string | null;
+  }> | undefined; refetch: () => void };
 
   // Get all videos (recent first)
-  const { data: recentVideos, refetch: refetchRecentVideos } = trpc.videos.getAll.useQuery();
+  const { data: recentVideos, refetch: refetchRecentVideos } = trpc.videos.getAll.useQuery() as { data: Video[] | undefined; refetch: () => void };
 
   // Get video metadata from database
   const { data: dbVideo } = trpc.videos.getById.useQuery(
     { id: fetchedVideoId! },
     { enabled: !!fetchedVideoId }
-  );
+  ) as { data: Video | undefined };
 
   // Get transcript segments from database
   const { data: dbTranscriptSegments } = trpc.transcripts.getByVideoId.useQuery(
     { videoId: fetchedVideoId! },
     { enabled: !!fetchedVideoId }
-  );
+  ) as { data: TranscriptSegment[] | undefined };
 
   // Mutations for saving data
   const saveVideoMutation = trpc.videos.upsert.useMutation();
@@ -182,7 +190,18 @@ export default function Home() {
             videoId: fetchedVideoId,
             segments: chunks[i],
             videoContext,
-          });
+          }) as unknown as {
+            claims: Array<{
+              id: string;
+              claim: string;
+              speaker?: string | null;
+              timestamp: number;
+              status: string;
+              verdict?: string | null;
+              sources?: Array<{ url: string; title?: string }> | string | null;
+            }>;
+            claimsExtracted: number;
+          };
           
           if (result.claims.length > 0) {
             allClaims.push(...result.claims);
