@@ -15,7 +15,7 @@
 
 ## 🎥 Demo
 
-[https://pub-db185f4f43c4432ba0b32304b34684fe.r2.dev/fact-tube.mp4]
+<https://pub-db185f4f43c4432ba0b32304b34684fe.r2.dev/fact-tube.mp4>
 
 > Watch FactTube in action as it analyzes YouTube videos in real-time and extracts verifiable claims.
 
