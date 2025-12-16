@@ -4,6 +4,7 @@ import { trpc } from '@/lib/trpc/react';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { chunkSegmentsByTime } from '@/lib/types/transcript';
+import type { TranscriptSegment, Video } from '@/lib/db/schema';
 
 export default function Home() {
   const [videoInput, setVideoInput] = useState('');
@@ -345,7 +346,7 @@ export default function Home() {
                   <h3 className="font-semibold text-white">Transcript Segments (from database)</h3>
                 </div>
                 <div className="max-h-96 overflow-y-auto">
-                  {dbTranscriptSegments.map((segment) => (
+                  {dbTranscriptSegments.map((segment: TranscriptSegment) => (
                     <div
                       key={segment.id}
                       className="px-4 py-3 border-b border-white/10 hover:bg-white/10 transition-all duration-200"
@@ -477,7 +478,7 @@ export default function Home() {
           <div className="bg-white/10 md:bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 mb-8 shadow-2xl transition-all duration-300 hover:bg-white/15 z-20 relative">
             <h2 className="text-2xl font-semibold mb-4 text-white">Recent Videos</h2>
             <div className="space-y-3">
-              {recentVideos.map((video) => (
+              {recentVideos.map((video: Video) => (
                 <button
                   key={video.id}
                   onClick={() => handleSelectVideo(video.id)}
