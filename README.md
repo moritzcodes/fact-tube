@@ -15,7 +15,7 @@
 
 ## 🎥 Demo
 
-https://github.com/user-attachments/assets/your-video-id-here
+[https://pub-db185f4f43c4432ba0b32304b34684fe.r2.dev/fact-tube.mp4]
 
 > Watch FactTube in action as it analyzes YouTube videos in real-time and extracts verifiable claims.
 
@@ -106,29 +106,7 @@ The app auto-creates a local SQLite database. No cloud setup required. ✨
 
 ---
 
-## 📋 Commands
-
-```bash
-pnpm dev         # 🚀 Start dev server
-pnpm build       # 📦 Build for production
-pnpm lint        # 🔍 Lint code
-pnpm db:studio   # 💾 View database in browser
-```
-
----
-
 ## 🔄 How It Works
-
-```mermaid
-graph LR
-    A[YouTube Video] --> B[Extract Transcript]
-    B --> C[Chunk into Segments]
-    C --> D[AI Extracts Claims]
-    D --> E[Save to SQLite]
-    E --> F[Background Verification]
-    F --> G[Real-time Updates via SSE]
-    G --> H[Display in Extension]
-```
 
 1. **📹 Extract** - Extension pulls transcript from YouTube video
 2. **✂️ Chunk** - Backend splits transcript into manageable segments
@@ -148,6 +126,4 @@ MIT - Free for personal and commercial use
 
 <div align="center">
   Made with ❤️ for truth and transparency
-  
-  [⭐ Star on GitHub](https://github.com/yourusername/fact-tube) • [🐛 Report Bug](https://github.com/yourusername/fact-tube/issues) • [✨ Request Feature](https://github.com/yourusername/fact-tube/issues)
 </div>
