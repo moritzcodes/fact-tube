@@ -14,13 +14,17 @@
 ---
 
 ## 🎥 Demo
-
 <https://pub-db185f4f43c4432ba0b32304b34684fe.r2.dev/fact-tube.mp4>
 
 > Watch FactTube in action as it analyzes YouTube videos in real-time and extracts verifiable claims.
 
-## ✨ What It Does
+## What It Does
+<div align="center">
+  <img src="https://pub-db185f4f43c4432ba0b32304b34684fe.r2.dev/fact-tube-view.jpg" alt="FactTube Dashboard" width="800">
+  <p><em>View all analyzed videos and their fact-check results in one place</em></p>
+</div>
 
+- **🎛 Seamless Overlay** - Fluidly overlays verification directly in your YouTube player via the Chrome extension.
 - **📝 Extract Claims** - Automatically identifies factual claims from YouTube video transcripts
 - **✅ Verify Facts** - Uses AI (OpenRouter + Perplexity) to verify each claim with sources
 - **⚡ Real-time Results** - Shows verification results as you watch, with visual indicators
